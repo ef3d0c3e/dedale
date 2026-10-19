@@ -320,6 +320,9 @@ export const session = (value, path) => {
         ...obj({
             bots: arr(str),
             games: int,
+            settings: str,
+            tournament: nullable(mode),
+            start: nullable((v, p) => gameStart(v, p)),
             phase: oneOf("waiting", "running", "finished", "failed"),
             error: nullable(str),
             file: nullable(str),

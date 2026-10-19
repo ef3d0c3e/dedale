@@ -459,3 +459,54 @@ table.runs td.nowrap {
   font-family: var(--mono);
   font-size: 0.85rem;
 }
+
+.live-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.4rem 0 0.8rem;
+}
+
+.live-controls [hidden] {
+  display: none;
+}
+
+button.primary {
+  padding: 0.3rem 1.2rem;
+  font-weight: 600;
+  color: var(--on-player);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.phase {
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  background: var(--line);
+}
+
+.phase-running {
+  color: var(--on-player);
+  background: var(--ok);
+}
+
+.phase-failed {
+  color: var(--on-player);
+  background: var(--error);
+}
+
+.connection {
+  font-size: 0.85rem;
+}
+
+.notice p,
+.intro p {
+  margin: 0.3rem 0;
+}

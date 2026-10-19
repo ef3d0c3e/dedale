@@ -29,7 +29,7 @@ use crate::tournament::{
     BotInfo, GameEntry, GamePlan, MazeSource, Mode, Standing, TOURNAMENT_FORMAT,
     TournamentObserver, TournamentReport, game_dir, play, schedule, standings,
 };
-use crate::web::live::{Live, LiveMode, LiveObserver};
+use crate::web::live::{Live, LiveMode, LiveObserver, Plan};
 
 #[derive(Debug, Args)]
 pub(crate) struct TournamentArgs {
@@ -106,16 +106,20 @@ pub(crate) fn run(args: &TournamentArgs) -> CliResult {
         (None, Some(code)) => generate(&code),
         (None, None) => unreachable!("generated mazes have codes"),
     };
-    let title = format!(
-        "{mode_name} tournament: {}, {} mazes",
-        names.join(", "),
-        args.games
-    );
     let live = args.live.start(
-        LiveMode::Tournament,
-        title,
-        names.clone(),
-        plans.len(),
+        || Plan {
+            mode: LiveMode::Tournament,
+            title: format!(
+                "{mode_name} tournament: {}, {} mazes",
+                names.join(", "),
+                args.games
+            ),
+            bots: names.clone(),
+            games: plans.len(),
+            settings: settings(&args.timing, &source, master_seed),
+            tournament: Some(mode),
+            start: None,
+        },
         &out,
     )?;
     let fail = |e: Box<dyn Error>| {
@@ -221,6 +225,26 @@ impl TournamentObserver for Progress<'_> {
             live.standings(&standings(self.mode, self.names, games));
         }
     }
+}
+
+/// Mazes and timings in a line, for the live page.
+fn settings(timing: &TimingArgs, source: &MazeSource, master_seed: u64) -> String {
+    let mazes = match source {
+        MazeSource::Generated {
+            width,
+            height,
+            loops,
+            ..
+        } => format!("{width}×{height} mazes, {loops}% loops"),
+        MazeSource::Map { path } => format!("map {path}"),
+    };
+    let turns = timing
+        .max_turns
+        .map_or_else(String::new, |n| format!(", {n} turns at most"));
+    format!(
+        "{mazes}, {} ms startup, {} ms per move{turns}, master seed {master_seed:016x}",
+        timing.startup_ms, timing.move_ms
+    )
 }
 
 /// `tournament.json`.

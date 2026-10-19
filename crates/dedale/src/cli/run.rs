@@ -18,6 +18,7 @@ use crate::referee::{Entrant, GameStart, MatchConfig, Observer, run_match};
 use crate::render::{Frame, Style, render};
 use crate::replay;
 use crate::web::live::LiveMode;
+use crate::web::live::Plan;
 
 #[derive(Debug, Args)]
 pub(crate) struct RunArgs {
@@ -141,7 +142,7 @@ pub(crate) fn run(args: &RunArgs) -> CliResult {
     let launcher = runtime.launcher(args.python.clone());
     let specs: Vec<BotSpec> = args.bots.iter().map(BotSpec::from_path).collect();
     let names = unique_names(&specs);
-    let entrants = specs
+    let entrants: Vec<Entrant> = specs
         .iter()
         .zip(&names)
         .map(|(spec, name)| Entrant {
@@ -154,10 +155,18 @@ pub(crate) fn run(args: &RunArgs) -> CliResult {
 
     let config = args.timing.config(seating);
     let style = args.display.style();
-    let title = format!("{} on {maze_name}", names.join(" vs "));
-    let live = args
-        .live
-        .start(LiveMode::Run, title, names.clone(), 1, &out)?;
+    let live = args.live.start(
+        || Plan {
+            mode: LiveMode::Run,
+            title: format!("{} on {maze_name}", names.join(" vs ")),
+            bots: names.clone(),
+            games: 1,
+            settings: settings(&args.timing, seating),
+            tournament: None,
+            start: Some(GameStart::new(maze.clone(), code, &entrants, &config)),
+        },
+        &out,
+    )?;
     let mut watcher = Watcher {
         names,
         max_turns: 0,
@@ -198,6 +207,22 @@ pub(crate) fn run(args: &RunArgs) -> CliResult {
         }
         None => Ok(()),
     }
+}
+
+/// Timings in a line, for the live page.
+fn settings(timing: &TimingArgs, seating: Seating) -> String {
+    let seats = match seating {
+        Seating::Solo => "solo",
+        Seating::Duo => "duo",
+        Seating::DuoSwapped => "duo, corners swapped",
+    };
+    let turns = timing
+        .max_turns
+        .map_or_else(String::new, |n| format!(", {n} turns at most"));
+    format!(
+        "{seats}, {} ms startup, {} ms per move{turns}",
+        timing.startup_ms, timing.move_ms
+    )
 }
 
 /// Shows each turn of a game as it is played.

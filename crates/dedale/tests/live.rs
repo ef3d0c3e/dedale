@@ -16,7 +16,7 @@ use common::{fake_bot, fake_bot_path};
 use dedale::referee::{Entrant, GameStart, MatchConfig, run_match};
 use dedale::replay;
 use dedale::tournament::TournamentReport;
-use dedale::web::live::{GameEnd, Live, LiveMode, LiveSnapshot, Phase};
+use dedale::web::live::{GameEnd, Live, LiveMode, LiveSnapshot, Phase, Plan};
 use dedale::web::server::Server;
 use dedale_core::game::Seating;
 use dedale_core::maze::Maze;
@@ -187,6 +187,15 @@ fn a_live_run_starts_from_the_page_and_streams_its_replay() {
     assert_eq!(first.session.mode, LiveMode::Run);
     assert_eq!(first.session.bots, ["dedale-fake-bot"]);
     assert!(first.games.is_empty());
+    // The game to come, before Start.
+    let preview = first.session.start.as_ref().unwrap();
+    assert_eq!(preview.maze, Maze::parse(RING).unwrap());
+    assert_eq!(preview.config.max_turns, 20);
+    assert!(
+        first.session.settings.contains("20 turns at most"),
+        "{}",
+        first.session.settings
+    );
     assert_eq!(events.next().0, "waiting");
     let session = get_json(port, &viewing.api("/api/session"));
     assert_eq!(session["phase"], "waiting");
@@ -270,6 +279,15 @@ fn a_live_tournament_streams_every_game_and_the_standings() {
     let first = snapshot(&events.next().1);
     assert_eq!(first.session.mode, LiveMode::Tournament);
     assert_eq!(first.session.games, 2);
+    assert_eq!(
+        first.session.tournament,
+        Some(dedale::tournament::Mode::Duo)
+    );
+    assert!(
+        first.session.settings.contains("master seed"),
+        "{}",
+        first.session.settings
+    );
     assert_eq!(events.next().0, "waiting");
     assert_eq!(post(viewing.port, &viewing.api("/api/start"), "").0, 200);
 
@@ -327,14 +345,16 @@ struct InProcess {
 }
 
 fn in_process(out: &Path, moves: &str, max_turns: u32) -> InProcess {
-    let live = Live::new(
-        LiveMode::Run,
-        "test".to_owned(),
-        vec!["bot".to_owned()],
-        1,
-        out,
-    )
-    .unwrap();
+    let plan = Plan {
+        mode: LiveMode::Run,
+        title: "test".to_owned(),
+        bots: vec!["bot".to_owned()],
+        games: 1,
+        settings: String::new(),
+        tournament: None,
+        start: None,
+    };
+    let live = Live::new(plan, out).unwrap();
     let server = Server::bind(None).unwrap();
     let (port, token) = (server.port(), server.token().to_owned());
     let server = server.spawn(live.clone()).unwrap();

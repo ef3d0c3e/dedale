@@ -12,7 +12,7 @@ use dedale::tournament::{
     BotInfo, GameEntry, GamePlan, MazeSource, Mode, TOURNAMENT_FORMAT, TournamentReport, standings,
 };
 use dedale::web::http::{Body, Method, Request};
-use dedale::web::live::{Live, LiveMode};
+use dedale::web::live::{Live, LiveMode, Plan};
 use dedale::web::server::Handler;
 use dedale_core::game::{PlayerState, Seating};
 use dedale_core::record::GameRecord;
@@ -66,13 +66,7 @@ fn request(method: Method, path: &str) -> Request {
 fn events(record: &GameRecord) -> Vec<Value> {
     let out = tempfile::tempdir().unwrap();
     let names = record.players.iter().map(|p| p.name.clone()).collect();
-    let live = Live::new(LiveMode::Run, "golden".to_owned(), names, 1, out.path()).unwrap();
-    let Body::Events(stream) = live.api(&request(Method::Get, "/api/events")).body else {
-        panic!("not a stream");
-    };
-    assert_eq!(live.api(&request(Method::Post, "/api/start")).status, 200);
-    let mut observer = live.observer();
-    observer.game_start(&GameStart {
+    let start = GameStart {
         code: record.code,
         maze: record.maze.clone(),
         config: record.config,
@@ -85,7 +79,23 @@ fn events(record: &GameRecord) -> Vec<Value> {
                 start: p.start,
             })
             .collect(),
-    });
+    };
+    let plan = Plan {
+        mode: LiveMode::Run,
+        title: "golden".to_owned(),
+        bots: names,
+        games: 1,
+        settings: "duo, 500 ms startup, 100 ms per move, 12 turns at most".to_owned(),
+        tournament: None,
+        start: Some(start.clone()),
+    };
+    let live = Live::new(plan, out.path()).unwrap();
+    let Body::Events(stream) = live.api(&request(Method::Get, "/api/events")).body else {
+        panic!("not a stream");
+    };
+    assert_eq!(live.api(&request(Method::Post, "/api/start")).status, 200);
+    let mut observer = live.observer();
+    observer.game_start(&start);
     for (player, p) in record.players.iter().enumerate() {
         observer.startup(player, &p.startup);
     }

@@ -23,7 +23,7 @@ use super::server::Handler;
 use super::sse::{Broadcast, Event};
 use crate::interrupt;
 use crate::referee::{GameStart, MatchError, Observer};
-use crate::tournament::Standing;
+use crate::tournament::{Mode, Standing};
 
 /// Longest delay between turns the page may ask for.
 pub const MAX_DELAY_MS: u64 = 60_000;
@@ -53,6 +53,22 @@ pub struct Pace {
     pub delay_ms: u64,
 }
 
+/// What a session will play, shown before Start.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Plan {
+    pub mode: LiveMode,
+    pub title: String,
+    pub bots: Vec<String>,
+    /// Games planned.
+    pub games: usize,
+    /// Timings and mazes, in a line.
+    pub settings: String,
+    /// A tournament's mode.
+    pub tournament: Option<Mode>,
+    /// A run's game, before it starts.
+    pub start: Option<GameStart>,
+}
+
 /// `GET /api/session`, and the session in a snapshot.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Session {
@@ -61,6 +77,9 @@ pub struct Session {
     pub bots: Vec<String>,
     /// Games planned.
     pub games: usize,
+    pub settings: String,
+    pub tournament: Option<Mode>,
+    pub start: Option<GameStart>,
     pub phase: Phase,
     /// Why the session failed.
     pub error: Option<String>,
@@ -178,21 +197,18 @@ impl Live {
     /// # Errors
     ///
     /// When `out` is not a directory.
-    pub fn new(
-        mode: LiveMode,
-        title: String,
-        bots: Vec<String>,
-        games: usize,
-        out: &Path,
-    ) -> io::Result<Arc<Self>> {
+    pub fn new(plan: Plan, out: &Path) -> io::Result<Arc<Self>> {
         Ok(Arc::new(Self {
             files: Browse::new(out)?,
             state: Mutex::new(State {
                 session: Session {
-                    mode,
-                    title,
-                    bots,
-                    games,
+                    mode: plan.mode,
+                    title: plan.title,
+                    bots: plan.bots,
+                    games: plan.games,
+                    settings: plan.settings,
+                    tournament: plan.tournament,
+                    start: plan.start,
                     phase: Phase::Waiting,
                     error: None,
                     file: None,

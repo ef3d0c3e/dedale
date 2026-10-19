@@ -171,7 +171,7 @@ pub fn run_match(
             got: entrants.len(),
         });
     }
-    let start = game_start(maze, code, &entrants, config);
+    let start = GameStart::new(maze, code, &entrants, config);
     observer.game_start(&start);
     let GameStart {
         maze,
@@ -247,33 +247,37 @@ pub fn run_match(
     Ok(record)
 }
 
-/// What the observer is told before the bots start.
-fn game_start(
-    maze: Maze,
-    code: Option<MazeCode>,
-    entrants: &[Entrant],
-    config: &MatchConfig,
-) -> GameStart {
-    let max_turns = config.max_turns.unwrap_or_else(|| default_max_turns(&maze));
-    let players = entrants
-        .iter()
-        .zip(config.seating.starts(&maze))
-        .map(|(entrant, start)| PlayerStart {
-            name: entrant.name.clone(),
-            path: entrant.path.clone(),
-            start,
-        })
-        .collect();
-    GameStart {
-        code,
-        maze,
-        config: ConfigRecord {
-            startup_ms: millis(config.startup),
-            move_ms: millis(config.move_timeout),
-            max_turns,
-            seating: config.seating,
-        },
-        players,
+impl GameStart {
+    /// The game `run_match` would play with these arguments, as the
+    /// observer is told before the bots start.
+    #[must_use]
+    pub fn new(
+        maze: Maze,
+        code: Option<MazeCode>,
+        entrants: &[Entrant],
+        config: &MatchConfig,
+    ) -> Self {
+        let max_turns = config.max_turns.unwrap_or_else(|| default_max_turns(&maze));
+        let players = entrants
+            .iter()
+            .zip(config.seating.starts(&maze))
+            .map(|(entrant, start)| PlayerStart {
+                name: entrant.name.clone(),
+                path: entrant.path.clone(),
+                start,
+            })
+            .collect();
+        Self {
+            code,
+            maze,
+            config: ConfigRecord {
+                startup_ms: millis(config.startup),
+                move_ms: millis(config.move_timeout),
+                max_turns,
+                seating: config.seating,
+            },
+            players,
+        }
     }
 }
 

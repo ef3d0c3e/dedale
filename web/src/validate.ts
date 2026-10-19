@@ -398,6 +398,9 @@ export const session: Check<Session> = (value, path) => {
     ...obj<Required<Omit<Session, "mode" | "title">>>({
       bots: arr(str),
       games: int,
+      settings: str,
+      tournament: nullable(mode),
+      start: nullable((v, p) => gameStart(v, p)),
       phase: oneOf("waiting", "running", "finished", "failed"),
       error: nullable(str),
       file: nullable(str),

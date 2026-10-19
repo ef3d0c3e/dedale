@@ -9,7 +9,7 @@ use clap::Args;
 
 use super::CliResult;
 use crate::interrupt;
-use crate::web::live::{Live, LiveMode};
+use crate::web::live::{Live, Plan};
 use crate::web::server::{Handler, Server, ServerHandle, open_browser};
 
 #[derive(Debug, Clone, Args)]
@@ -64,19 +64,16 @@ pub(crate) struct LiveArgs {
 
 impl LiveArgs {
     /// With `--view`: serves a live session over `out` and waits for Start
-    /// in the page (or Ctrl-C).
+    /// in the page (or Ctrl-C). `plan` is only made with `--view`.
     pub(crate) fn start(
         &self,
-        mode: LiveMode,
-        title: String,
-        bots: Vec<String>,
-        games: usize,
+        plan: impl FnOnce() -> Plan,
         out: &Path,
     ) -> CliResult<Option<LiveServer>> {
         if !self.view {
             return Ok(None);
         }
-        let live = Live::new(mode, title, bots, games, out)?;
+        let live = Live::new(plan(), out)?;
         let handle = self.serve.start(live.clone(), "#/live")?;
         writeln!(
             io::stdout().lock(),

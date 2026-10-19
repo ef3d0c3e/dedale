@@ -16,7 +16,41 @@
         "games": 1,
         "mode": "run",
         "phase": "waiting",
-        "title": "golden"
+        "settings": "duo, 500 ms startup, 100 ms per move, 12 turns at most",
+        "start": {
+          "code": "ded2-5x5-l0-p17-0000000000000000",
+          "config": {
+            "max_turns": 12,
+            "move_ms": 100,
+            "seating": "duo",
+            "startup_ms": 500
+          },
+          "maze": {
+            "cells": "_.....###.......###....._",
+            "height": 5,
+            "width": 5
+          },
+          "players": [
+            {
+              "name": "lap",
+              "path": "fake:lap",
+              "start": [
+                0,
+                0
+              ]
+            },
+            {
+              "name": "flaky",
+              "path": "fake:flaky",
+              "start": [
+                4,
+                4
+              ]
+            }
+          ]
+        },
+        "title": "golden",
+        "tournament": null
       },
       "standings": null
     },

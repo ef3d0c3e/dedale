@@ -226,6 +226,12 @@ export interface Session {
   /** Live sessions only. */
   bots?: string[];
   games?: number;
+  /** Mazes and timings, in a line. */
+  settings?: string;
+  /** A tournament's mode. */
+  tournament?: Mode | null;
+  /** A run's game, before Start. */
+  start?: GameStart | null;
   phase?: Phase;
   error?: string | null;
   file?: string | null;

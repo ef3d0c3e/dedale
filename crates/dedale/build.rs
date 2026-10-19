@@ -11,15 +11,23 @@ fn main() -> io::Result<()> {
     let dist = manifest.join("../../web/dist").canonicalize()?;
     println!("cargo::rerun-if-changed={}", dist.display());
 
-    let mut files = Vec::new();
-    collect(&dist, &mut files)?;
+    let mut paths = Vec::new();
+    collect(&dist, &mut paths)?;
+    let mut files: Vec<(String, &Path)> = paths
+        .iter()
+        .map(|path| {
+            let relative = path.strip_prefix(&dist).expect("under dist");
+            let Some(relative) = relative.to_str().filter(|r| !r.contains('\\')) else {
+                panic!("unsupported file name in web/dist: {}", relative.display());
+            };
+            (relative.to_owned(), path.as_path())
+        })
+        .collect();
+    // By string, as `web::assets::asset` searches (paths order by component:
+    // `live/x.js` before `live.js`).
     files.sort();
     let mut table = String::from("&[\n");
-    for path in &files {
-        let relative = path.strip_prefix(&dist).expect("under dist");
-        let Some(relative) = relative.to_str().filter(|r| !r.contains('\\')) else {
-            panic!("unsupported file name in web/dist: {}", relative.display());
-        };
+    for (relative, path) in &files {
         let absolute = path.to_str().expect("UTF-8 path");
         writeln!(table, "    ({relative:?}, include_bytes!({absolute:?})),").expect("in memory");
     }

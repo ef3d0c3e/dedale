@@ -40,12 +40,15 @@ export class MazeCanvas {
     resize(maxWidth, maxHeight) {
         const layout = fit(this.model.width, this.model.height, maxWidth, maxHeight);
         const dpr = window.devicePixelRatio || 1;
-        if (layout.cell === this.layout.cell && dpr === this.dpr && this.walls)
+        const width = Math.round(layout.width * dpr);
+        const height = Math.round(layout.height * dpr);
+        // The canvas itself, not the last layout: it starts at the default size.
+        if (width === this.element.width && height === this.element.height && dpr === this.dpr)
             return false;
         this.layout = layout;
         this.dpr = dpr;
-        this.element.width = Math.round(layout.width * dpr);
-        this.element.height = Math.round(layout.height * dpr);
+        this.element.width = width;
+        this.element.height = height;
         this.element.style.width = `${layout.width}px`;
         this.element.style.height = `${layout.height}px`;
         this.walls = null;
