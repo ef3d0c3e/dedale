@@ -27,6 +27,15 @@ function readPalette(): Palette {
   };
 }
 
+/** A bot-chosen colour, if it is a plain colour value (`#rgb`, `#rrggbb`,
+ * `#rrggbbaa` or a name). */
+export function markColour(colour: string | null): string | null {
+  return colour !== null &&
+    /^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[a-zA-Z]{1,30})$/.test(colour)
+    ? colour
+    : null;
+}
+
 /** Marks drawn over the maze, in a player's colour unless they set theirs. */
 export interface Overlay {
   player: number;
@@ -139,7 +148,7 @@ export class MazeCanvas {
     const c = this.layout.cell;
     const own = this.palette.players[overlay.player] ?? this.palette.mark;
     for (const mark of overlay.marks) {
-      ctx.fillStyle = mark.color ?? own;
+      ctx.fillStyle = markColour(mark.color) ?? own;
       ctx.globalAlpha = 0.35;
       for (const [x, y] of mark.cells) ctx.fillRect(x * c, y * c, c, c);
       ctx.globalAlpha = 1;

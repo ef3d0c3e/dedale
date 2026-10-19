@@ -13,6 +13,14 @@ function readPalette() {
         text: v("--on-player"),
     };
 }
+/** A bot-chosen colour, if it is a plain colour value (`#rgb`, `#rrggbb`,
+ * `#rrggbbaa` or a name). */
+export function markColour(colour) {
+    return colour !== null &&
+        /^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[a-zA-Z]{1,30})$/.test(colour)
+        ? colour
+        : null;
+}
 export class MazeCanvas {
     element;
     model;
@@ -117,7 +125,7 @@ export class MazeCanvas {
         const c = this.layout.cell;
         const own = this.palette.players[overlay.player] ?? this.palette.mark;
         for (const mark of overlay.marks) {
-            ctx.fillStyle = mark.color ?? own;
+            ctx.fillStyle = markColour(mark.color) ?? own;
             ctx.globalAlpha = 0.35;
             for (const [x, y] of mark.cells)
                 ctx.fillRect(x * c, y * c, c, c);

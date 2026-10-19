@@ -2,6 +2,7 @@
 
 import { h, replace } from "../dom.ts";
 import { fromRecord } from "../game/data.ts";
+import { Inspector } from "../game/inspector.ts";
 import { GameView } from "../game/view.ts";
 import { routeHash } from "../router.ts";
 import type { Context, View } from "./view.ts";
@@ -20,13 +21,17 @@ export function game(
     (record) => {
       if (disposed) return;
       const data = fromRecord(record);
+      const inspector = new Inspector(data, () => view?.draw());
       view = new GameView(data, {
         turn,
         onTurn(shown) {
           // Keeps the address on this turn without reloading the view.
           history.replaceState(null, "", routeHash({ page: "game", path, turn: shown }));
         },
+        onShow: (shown) => inspector.show(shown),
+        overlay: () => inspector.overlay(),
       });
+      view.side.append(inspector.element);
       replace(
         container,
         h("h2", {}, data.players.map((p) => p.name).join(" vs ")),
