@@ -7,6 +7,7 @@
 use std::fmt;
 use std::str::FromStr;
 
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 
 use crate::grid::MAX_SIZE;
@@ -183,6 +184,20 @@ impl FromStr for MazeCode {
     }
 }
 
+/// Serialized as its string form.
+impl Serialize for MazeCode {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+impl<'de> Deserialize<'de> for MazeCode {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        text.parse().map_err(serde::de::Error::custom)
+    }
+}
+
 /// A canonical decimal of at most 3 digits: `0`, or digits without a leading
 /// zero.
 fn decimal(s: &str) -> Option<u32> {
@@ -298,6 +313,17 @@ mod tests {
                 name: "density",
                 value: 999
             })
+        );
+    }
+
+    #[test]
+    fn serde_uses_the_string_form() {
+        let code: MazeCode = "ded1-31x31-l25-p100-9f3a0c11d2e4b6a8".parse().unwrap();
+        let json = serde_json::to_string(&code).unwrap();
+        assert_eq!(json, r#""ded1-31x31-l25-p100-9f3a0c11d2e4b6a8""#);
+        assert_eq!(serde_json::from_str::<MazeCode>(&json).unwrap(), code);
+        assert!(
+            serde_json::from_str::<MazeCode>(r#""ded1-30x31-l25-p100-0000000000000000""#).is_err()
         );
     }
 

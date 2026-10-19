@@ -8,6 +8,7 @@
 //!                 [--sleep-at TURN:MS]...  [--silent-at TURN]...
 //!                 [--crash-at TURN]        exits with status 3
 //!                 [--garbage-at TURN]...   [--oversized-at TURN]...
+//!                 [--error-at TURN]...     move() "raised"
 //!                 [--stale-at TURN]...     answers with the previous turn id
 //!                 [--log TEXT]             attached to every move
 //!                 [--stderr TEXT] [--stderr-bytes N]
@@ -37,6 +38,7 @@ struct Script {
     crash_at: Option<u32>,
     garbage_at: HashSet<u32>,
     oversized_at: HashSet<u32>,
+    error_at: HashSet<u32>,
     stale_at: HashSet<u32>,
     log: Option<String>,
     stderr: Option<String>,
@@ -57,6 +59,7 @@ impl Script {
             crash_at: None,
             garbage_at: HashSet::new(),
             oversized_at: HashSet::new(),
+            error_at: HashSet::new(),
             stale_at: HashSet::new(),
             log: None,
             stderr: None,
@@ -80,6 +83,7 @@ impl Script {
                 "--crash-at" => script.crash_at = Some(number(&value()?)?),
                 "--garbage-at" => _ = script.garbage_at.insert(number(&value()?)?),
                 "--oversized-at" => _ = script.oversized_at.insert(number(&value()?)?),
+                "--error-at" => _ = script.error_at.insert(number(&value()?)?),
                 "--stale-at" => _ = script.stale_at.insert(number(&value()?)?),
                 "--log" => script.log = Some(value()?),
                 "--stderr" => script.stderr = Some(value()?),
@@ -167,13 +171,17 @@ fn run(script: &Script) -> io::Result<ExitCode> {
                     out.flush()?;
                 } else {
                     let stale = script.stale_at.contains(&t);
+                    let raised = script.error_at.contains(&t);
                     let reply = FromBot::Move(MoveReply {
                         turn: if stale { t - 1 } else { t },
-                        mv: Some(script.move_for(t)),
+                        mv: (!raised).then(|| script.move_for(t)),
                         think_us: Some(1),
                         log: script.log.iter().cloned().collect(),
                         marks: Vec::new(),
-                        error: None,
+                        error: raised.then(|| BotError {
+                            message: "scripted move error".to_owned(),
+                            traceback: Some("Traceback: scripted".to_owned()),
+                        }),
                     });
                     send(&mut out, &reply)?;
                 }

@@ -9,4 +9,5 @@ pub mod generator;
 pub mod grid;
 pub mod maze;
 pub mod protocol;
+pub mod record;
 pub mod rng;

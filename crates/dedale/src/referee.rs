@@ -1,0 +1,579 @@
+//! Runs one game end to end.
+//!
+//! Spawn the bots, wait for their `hello`, send `init` and give them the
+//! startup budget, then play turns until the engine says the game is over.
+//! A bot is never waited on past a deadline, and a bot that misbehaves only
+//! ever costs itself: the turn resolves with a non-`ok` outcome.
+
+use std::io;
+use std::os::unix::process::ExitStatusExt;
+use std::path::PathBuf;
+use std::process::Command;
+use std::time::{Duration, Instant};
+
+use dedale_core::code::MazeCode;
+use dedale_core::game::{
+    Failure, Game, GameResult, Input, Seating, Snapshot, TurnReport, default_max_turns,
+};
+use dedale_core::grid::Pos;
+use dedale_core::maze::Maze;
+use dedale_core::protocol::{
+    BotError, DecodeError, End, ErrorReply, FromBot, Init, InitPlayer, MAX_LINE, Mark, MoveReply,
+    PROTOCOL_VERSION, Ready, ToBot, Turn, decode_bot_line,
+};
+use dedale_core::record::{
+    ConfigRecord, EventKind, EventRecord, ExitRecord, GameRecord, PlayerRecord, PlayerTurnRecord,
+    REPLAY_FORMAT, StartupOutcome, StartupRecord, TurnRecord,
+};
+use thiserror::Error;
+
+use crate::process::{BotProcess, ExitReport, Output};
+
+/// Events kept per player; a flood beyond this is summarized once.
+const MAX_EVENTS_PER_PLAYER: usize = 1000;
+/// Time a bot whose stdout closed gets to finish exiting, so its exit
+/// status is its own rather than Dedale's kill.
+const CRASH_GRACE: Duration = Duration::from_millis(100);
+/// Background outputs handled per bot between two turns, so a bot writing
+/// without pause cannot hold the referee.
+const MAX_DRAIN: usize = 256;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MatchConfig {
+    pub startup: Duration,
+    pub move_timeout: Duration,
+    /// `None` for the default, `4·W·H`.
+    pub max_turns: Option<u32>,
+    pub seating: Seating,
+    /// Time for a bot to say `hello` (interpreter start), not counted
+    /// against startup.
+    pub hello_timeout: Duration,
+    /// Time a bot gets to exit after `end` before it is killed.
+    pub end_grace: Duration,
+}
+
+impl MatchConfig {
+    /// The default settings for `seating`.
+    #[must_use]
+    pub fn new(seating: Seating) -> Self {
+        Self {
+            startup: Duration::from_secs(2),
+            move_timeout: Duration::from_millis(100),
+            max_turns: None,
+            seating,
+            hello_timeout: Duration::from_secs(10),
+            end_grace: Duration::from_secs(1),
+        }
+    }
+}
+
+/// A competitor ready to be started.
+#[derive(Debug)]
+pub struct Entrant {
+    pub name: String,
+    /// The bot's path, as the user gave it (for the record).
+    pub path: String,
+    pub command: Command,
+    pub stderr_log: Option<PathBuf>,
+}
+
+#[derive(Debug, Error)]
+pub enum MatchError {
+    #[error("cannot start {player}: {source}")]
+    Spawn {
+        player: String,
+        #[source]
+        source: io::Error,
+    },
+    #[error("{seating:?} needs {expected} bots, got {got}")]
+    WrongPlayerCount {
+        seating: Seating,
+        expected: usize,
+        got: usize,
+    },
+}
+
+/// Plays one game and returns its full record. `observe` is called after
+/// every turn with the new state and the turn's record.
+///
+/// # Errors
+///
+/// When the number of entrants does not match the seating or a bot cannot
+/// be started. Misbehaving bots are never an error.
+///
+/// # Panics
+///
+/// Never: the turn loop only ends once the engine reports a result.
+pub fn run_match(
+    maze: Maze,
+    code: Option<MazeCode>,
+    entrants: Vec<Entrant>,
+    config: &MatchConfig,
+    mut observe: impl FnMut(&Snapshot, &TurnRecord),
+) -> Result<GameRecord, MatchError> {
+    let expected = config.seating.players();
+    if entrants.len() != expected {
+        return Err(MatchError::WrongPlayerCount {
+            seating: config.seating,
+            expected,
+            got: entrants.len(),
+        });
+    }
+    let max_turns = config.max_turns.unwrap_or_else(|| default_max_turns(&maze));
+    let starts = config.seating.starts(&maze);
+    let mut referee = Referee {
+        seats: Vec::new(),
+        events: Vec::new(),
+    };
+    for entrant in entrants {
+        referee.seats.push(Seat::spawn(entrant)?);
+    }
+
+    referee.handshake(config.hello_timeout);
+    let init = |you| {
+        ToBot::Init(Init {
+            protocol: PROTOCOL_VERSION,
+            code: code.map(|c| c.to_string()),
+            width: maze.width(),
+            height: maze.height(),
+            cells: maze.to_flat(),
+            you,
+            players: starts.iter().map(|&pos| InitPlayer { pos }).collect(),
+            startup_ms: millis(config.startup),
+            move_ms: millis(config.move_timeout),
+            max_turns,
+        })
+    };
+    let init_sent = Instant::now();
+    for (you, seat) in referee.seats.iter_mut().enumerate() {
+        seat.send(&init(you));
+        seat.init_sent = init_sent;
+        seat.startup_deadline = init_sent + config.startup;
+    }
+    referee.await_startup(init_sent + config.startup);
+
+    let mut game = Game::new(maze.clone(), config.seating, max_turns);
+    let mut turns = Vec::new();
+    let mut collected = Vec::new();
+    while !game.is_over() {
+        let turn = game.snapshot().turn + 1;
+        referee.drain(turn);
+        let msg = ToBot::Turn(Turn {
+            turn,
+            players: game.snapshot().players.clone(),
+            collected: std::mem::take(&mut collected),
+        });
+        let sent = Instant::now();
+        for seat in &mut referee.seats {
+            seat.send(&msg);
+        }
+        let deadline = sent + config.move_timeout;
+        let replies: Vec<Reply> = (0..referee.seats.len())
+            .map(|player| referee.await_reply(player, turn, sent, deadline))
+            .collect();
+        let inputs: Vec<Input> = replies.iter().map(|r| r.input).collect();
+        let report = game.step(&inputs);
+        collected.clone_from(&report.collected);
+        let record = turn_record(report, replies);
+        observe(game.snapshot(), &record);
+        turns.push(record);
+    }
+
+    let result = game.result().expect("the game is over");
+    referee.finish(&result, config.end_grace);
+    let players = referee
+        .seats
+        .into_iter()
+        .zip(starts)
+        .map(|(seat, start)| seat.into_record(start))
+        .collect();
+    Ok(GameRecord {
+        format: REPLAY_FORMAT,
+        dedale: env!("CARGO_PKG_VERSION").to_owned(),
+        code,
+        maze,
+        config: ConfigRecord {
+            startup_ms: millis(config.startup),
+            move_ms: millis(config.move_timeout),
+            max_turns,
+            seating: config.seating,
+        },
+        players,
+        turns,
+        events: referee.events,
+        result,
+    })
+}
+
+struct Referee {
+    seats: Vec<Seat>,
+    events: Vec<EventRecord>,
+}
+
+struct Seat {
+    name: String,
+    path: String,
+    /// `None` once the bot is gone (crashed or failed to start) and reaped.
+    process: Option<BotProcess>,
+    exit: Option<ExitReport>,
+    ready: bool,
+    init_sent: Instant,
+    startup_deadline: Instant,
+    startup: StartupRecord,
+    events: usize,
+}
+
+/// A bot's answer to one turn, before the engine resolves it.
+struct Reply {
+    input: Input,
+    latency_us: Option<u64>,
+    think_us: Option<u64>,
+    log: Vec<String>,
+    marks: Vec<Mark>,
+    error: Option<BotError>,
+    invalid: Option<String>,
+}
+
+impl Reply {
+    fn failed(failure: Failure) -> Self {
+        Self {
+            input: Input::Failed(failure),
+            latency_us: None,
+            think_us: None,
+            log: Vec::new(),
+            marks: Vec::new(),
+            error: None,
+            invalid: None,
+        }
+    }
+
+    fn invalid(reason: String, latency_us: u64) -> Self {
+        Self {
+            latency_us: Some(latency_us),
+            invalid: Some(reason),
+            ..Self::failed(Failure::Invalid)
+        }
+    }
+
+    fn from_move(reply: MoveReply, latency_us: u64) -> Self {
+        let (input, invalid) = if reply.error.is_some() {
+            (Input::Failed(Failure::Error), None)
+        } else {
+            match reply.requested() {
+                Ok(Some(mv)) => (Input::Move(mv), None),
+                Ok(None) => (Input::Failed(Failure::Invalid), Some("no move".to_owned())),
+                Err(e) => (Input::Failed(Failure::Invalid), Some(e.to_string())),
+            }
+        };
+        Self {
+            input,
+            latency_us: Some(latency_us),
+            think_us: reply.think_us,
+            log: reply.log,
+            marks: reply.marks,
+            error: reply.error,
+            invalid,
+        }
+    }
+}
+
+impl Seat {
+    fn spawn(entrant: Entrant) -> Result<Self, MatchError> {
+        let process = BotProcess::spawn(entrant.command, entrant.stderr_log.as_deref()).map_err(
+            |source| MatchError::Spawn {
+                player: entrant.name.clone(),
+                source,
+            },
+        )?;
+        let now = Instant::now();
+        Ok(Self {
+            name: entrant.name,
+            path: entrant.path,
+            process: Some(process),
+            exit: None,
+            ready: false,
+            init_sent: now,
+            startup_deadline: now,
+            startup: StartupRecord::pending(),
+            events: 0,
+        })
+    }
+
+    fn alive(&self) -> bool {
+        self.process.is_some()
+    }
+
+    fn send(&mut self, msg: &ToBot) {
+        // A failed send means stdin is gone; the closed stdout that comes
+        // with it is how the crash gets reported.
+        if let Some(process) = &self.process {
+            let _ = process.send(msg);
+        }
+    }
+
+    fn recv_until(&self, deadline: Instant) -> Option<Output> {
+        self.process.as_ref()?.recv_until(deadline)
+    }
+
+    /// Reaps a bot that is gone or must go; it plays no further part.
+    fn retire(&mut self, grace: Duration) {
+        if let Some(process) = self.process.take() {
+            self.exit = Some(process.finish(grace));
+        }
+    }
+
+    /// The bot's stdout closed: it exited or crashed.
+    fn crashed(&mut self) {
+        self.retire(CRASH_GRACE);
+        if !self.ready {
+            self.startup.outcome = StartupOutcome::Crashed;
+        }
+    }
+
+    fn fail_startup(&mut self, message: String) {
+        self.startup.error = Some(BotError {
+            message,
+            traceback: None,
+        });
+        self.crashed();
+    }
+
+    fn on_ready(&mut self, ready: Ready, at: Instant) {
+        self.ready = true;
+        self.startup.outcome = if at <= self.startup_deadline {
+            StartupOutcome::Ok
+        } else {
+            StartupOutcome::Late
+        };
+        self.startup.startup_us = Some(micros(at - self.init_sent));
+        self.startup.init_us = ready.init_us;
+        self.startup.log = ready.log;
+        self.startup.marks = ready.marks;
+    }
+
+    fn on_init_error(&mut self, reply: ErrorReply, at: Instant) {
+        // The harness keeps answering turns after a failed init().
+        self.ready = true;
+        self.startup.outcome = StartupOutcome::InitError;
+        self.startup.startup_us = Some(micros(at - self.init_sent));
+        self.startup.log = reply.log;
+        self.startup.error = Some(reply.error);
+    }
+
+    fn into_record(self, start: Pos) -> PlayerRecord {
+        PlayerRecord {
+            name: self.name,
+            path: self.path,
+            start,
+            startup: self.startup,
+            exit: self.exit.map(|exit| ExitRecord {
+                code: exit.status.and_then(|s| s.code()),
+                signal: exit.status.and_then(|s| s.signal()),
+                killed: exit.killed,
+                stderr_tail: exit.stderr_tail,
+            }),
+        }
+    }
+}
+
+impl Referee {
+    fn event(&mut self, turn: u32, player: usize, kind: EventKind) {
+        let seat = &mut self.seats[player];
+        seat.events += 1;
+        if seat.events < MAX_EVENTS_PER_PLAYER {
+            self.events.push(EventRecord { turn, player, kind });
+        } else if seat.events == MAX_EVENTS_PER_PLAYER {
+            let reason = format!("{MAX_EVENTS_PER_PLAYER} events; further ones are not recorded");
+            self.events.push(EventRecord {
+                turn,
+                player,
+                kind: EventKind::Ignored { reason },
+            });
+        }
+    }
+
+    fn ignored(&mut self, turn: u32, player: usize, reason: impl Into<String>) {
+        let reason = reason.into();
+        self.event(turn, player, EventKind::Ignored { reason });
+    }
+
+    /// Waits for every bot's `hello`, all against one deadline. A bot that
+    /// fails the handshake is retired at once, so it cannot run alongside
+    /// the others.
+    fn handshake(&mut self, timeout: Duration) {
+        let deadline = Instant::now() + timeout;
+        for player in 0..self.seats.len() {
+            let failure = match self.seats[player].recv_until(deadline) {
+                None => format!("no hello within {} ms", timeout.as_millis()),
+                Some(Output::Closed { .. }) => "exited before saying hello".to_owned(),
+                Some(Output::Oversized { .. }) => "oversized line instead of hello".to_owned(),
+                Some(Output::Line { line, .. }) => match decode_bot_line(&line) {
+                    Ok(FromBot::Hello(_)) => continue,
+                    Ok(other) => format!("expected hello, got {}", message_type(&other)),
+                    Err(e @ DecodeError::ProtocolVersion { .. }) => e.to_string(),
+                    Err(e) => format!("expected hello: {e}"),
+                },
+            };
+            self.seats[player].fail_startup(failure);
+        }
+    }
+
+    /// Gives every bot until `deadline` to report `ready` (or an `init()`
+    /// error); returns early once all have.
+    fn await_startup(&mut self, deadline: Instant) {
+        for player in 0..self.seats.len() {
+            while self.seats[player].alive() && !self.seats[player].ready {
+                let Some(output) = self.seats[player].recv_until(deadline) else {
+                    break;
+                };
+                self.background(player, 0, output);
+            }
+        }
+    }
+
+    /// Handles whatever bots sent between turns: late replies, a late
+    /// `ready`, a crash.
+    fn drain(&mut self, turn: u32) {
+        for player in 0..self.seats.len() {
+            for _ in 0..MAX_DRAIN {
+                let Some(output) = self.seats[player]
+                    .process
+                    .as_ref()
+                    .and_then(BotProcess::try_recv)
+                else {
+                    break;
+                };
+                self.background(player, turn, output);
+            }
+        }
+    }
+
+    /// An output that is not the reply to the turn being played (`turn` has
+    /// not been sent yet, or the bot is still starting).
+    fn background(&mut self, player: usize, turn: u32, output: Output) {
+        match output {
+            Output::Closed { .. } => self.seats[player].crashed(),
+            Output::Oversized { .. } => {
+                self.ignored(turn, player, format!("line longer than {MAX_LINE} bytes"));
+            }
+            Output::Line { at, line } => match decode_bot_line(&line) {
+                Err(e) => self.ignored(turn, player, e.to_string()),
+                Ok(msg) => self.message(player, turn, msg, at),
+            },
+        }
+    }
+
+    fn message(&mut self, player: usize, turn: u32, msg: FromBot, at: Instant) {
+        let seat = &mut self.seats[player];
+        match msg {
+            FromBot::Ready(ready) if !seat.ready => seat.on_ready(ready, at),
+            FromBot::Error(reply) if !seat.ready => seat.on_init_error(reply, at),
+            FromBot::Move(reply) if reply.turn < turn => {
+                let for_turn = reply.turn;
+                self.event(turn, player, EventKind::Late { for_turn });
+            }
+            other => {
+                let reason = format!("unexpected {}", message_type(&other));
+                self.ignored(turn, player, reason);
+            }
+        }
+    }
+
+    /// Waits for `player`'s reply to `turn` until `deadline`.
+    fn await_reply(
+        &mut self,
+        player: usize,
+        turn: u32,
+        sent_at: Instant,
+        deadline: Instant,
+    ) -> Reply {
+        loop {
+            let seat = &self.seats[player];
+            if !seat.alive() {
+                return Reply::failed(Failure::Crashed);
+            }
+            let ready = seat.ready;
+            let Some(output) = seat.recv_until(deadline) else {
+                return Reply::failed(if ready {
+                    Failure::Timeout
+                } else {
+                    Failure::NotReady
+                });
+            };
+            match output {
+                Output::Line { at, line } if ready => match decode_bot_line(&line) {
+                    Ok(FromBot::Move(reply)) if reply.turn == turn => {
+                        return Reply::from_move(reply, micros(at - sent_at));
+                    }
+                    Ok(msg) => self.message(player, turn, msg, at),
+                    Err(e) => return Reply::invalid(e.to_string(), micros(at - sent_at)),
+                },
+                Output::Oversized { at } if ready => {
+                    let reason = format!("line longer than {MAX_LINE} bytes");
+                    return Reply::invalid(reason, micros(at - sent_at));
+                }
+                other => self.background(player, turn, other),
+            }
+        }
+    }
+
+    /// Sends `end` and gives every bot one shared grace period to exit.
+    fn finish(&mut self, result: &GameResult, grace: Duration) {
+        let end = ToBot::End(End {
+            reason: result.reason,
+            turn: result.turns,
+            half_points: result.half_points.clone(),
+        });
+        for seat in &mut self.seats {
+            seat.send(&end);
+        }
+        let deadline = Instant::now() + grace;
+        for seat in &mut self.seats {
+            seat.retire(deadline.saturating_duration_since(Instant::now()));
+        }
+    }
+}
+
+fn turn_record(report: TurnReport, replies: Vec<Reply>) -> TurnRecord {
+    let players = report
+        .players
+        .into_iter()
+        .zip(replies)
+        .map(|(turn, reply)| PlayerTurnRecord {
+            requested: turn.requested,
+            applied: turn.applied,
+            outcome: turn.outcome,
+            latency_us: reply.latency_us,
+            think_us: reply.think_us,
+            pos: turn.pos,
+            gained: turn.gained,
+            half_points: turn.half_points,
+            log: reply.log,
+            marks: reply.marks,
+            error: reply.error,
+            invalid: reply.invalid,
+        })
+        .collect();
+    TurnRecord {
+        turn: report.turn,
+        players,
+        collected: report.collected,
+    }
+}
+
+fn message_type(msg: &FromBot) -> &'static str {
+    match msg {
+        FromBot::Hello(_) => "hello",
+        FromBot::Ready(_) => "ready",
+        FromBot::Error(_) => "error",
+        FromBot::Move(_) => "move",
+    }
+}
+
+fn micros(duration: Duration) -> u64 {
+    u64::try_from(duration.as_micros()).unwrap_or(u64::MAX)
+}
+
+fn millis(duration: Duration) -> u64 {
+    u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
+}

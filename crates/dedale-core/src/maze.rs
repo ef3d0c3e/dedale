@@ -4,6 +4,7 @@ use std::collections::VecDeque;
 use std::fmt;
 use std::ops::Deref;
 
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::grid::{Cell, Grid, GridError, MAX_SIZE, Pos};
@@ -36,9 +37,39 @@ pub enum MapError {
 
 /// A grid that is a playable maze: odd sides within bounds, symmetric under
 /// the 180° rotation, open starts without points, every open cell reachable.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+///
+/// Serialized as `{"width", "height", "cells"}` with flat cells, and
+/// validated when deserialized.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(try_from = "MazeRepr", into = "MazeRepr")]
 pub struct Maze {
     grid: Grid,
+}
+
+#[derive(Serialize, Deserialize)]
+struct MazeRepr {
+    width: u8,
+    height: u8,
+    cells: String,
+}
+
+impl From<Maze> for MazeRepr {
+    fn from(maze: Maze) -> Self {
+        Self {
+            width: maze.width(),
+            height: maze.height(),
+            cells: maze.to_flat(),
+        }
+    }
+}
+
+impl TryFrom<MazeRepr> for Maze {
+    type Error = MapError;
+
+    fn try_from(repr: MazeRepr) -> Result<Self, MapError> {
+        let grid = Grid::from_flat(repr.width, repr.height, &repr.cells)?;
+        Ok(Maze::new(grid)?)
+    }
 }
 
 impl Maze {
@@ -224,6 +255,19 @@ _....
                 pos: Pos::new(2, 2)
             }))
         );
+    }
+
+    #[test]
+    fn serde_validates() {
+        let maze = Maze::parse(OPEN).unwrap();
+        let json = serde_json::to_string(&maze).unwrap();
+        assert_eq!(
+            json,
+            r#"{"width":5,"height":5,"cells":"_.....#.#.......#.#....._"}"#
+        );
+        assert_eq!(serde_json::from_str::<Maze>(&json).unwrap(), maze);
+        let asymmetric = json.replacen("_....", "_.#..", 1);
+        assert!(serde_json::from_str::<Maze>(&asymmetric).is_err());
     }
 
     #[test]
