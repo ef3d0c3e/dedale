@@ -9,3 +9,5 @@ __pycache__/
 # Local tool configuration; .mcp.json holds an access token.
 .mcp.json
 .claude/settings.local.json
+/web/node_modules/
+/web/build/

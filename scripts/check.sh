@@ -33,6 +33,29 @@ cargo test --workspace --all-features --locked
 step "python tests"
 (cd bindings/python && PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -t .)
 
+step "web"
+if ! command -v node >/dev/null || (($(node -p 'process.versions.node.split(".")[0]') < 22)); then
+    echo "the web checks need Node 22 or later (https://nodejs.org)" >&2
+    exit 1
+fi
+(
+    cd web
+    # Installs the pinned tools when the lock file changed since the last install.
+    if ! cmp -s package-lock.json node_modules/.dedale-lock; then
+        npm ci --no-audit --no-fund
+        cp package-lock.json node_modules/.dedale-lock
+    fi
+    npm run --silent check
+    npm test --silent
+    fresh=$(mktemp -d)
+    trap 'rm -rf "$fresh"' EXIT
+    node scripts/build.mjs "$fresh"
+    if ! diff -r "$fresh" dist; then
+        echo "web/dist is stale: run 'npm run build' in web/" >&2
+        exit 1
+    fi
+)
+
 step "stable build"
 if rustup toolchain list | grep -q '^stable'; then
     rustup run stable cargo check --workspace --all-targets --all-features --locked

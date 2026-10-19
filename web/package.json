@@ -1,0 +1,21 @@
+{
+  "name": "dedale-web",
+  "private": true,
+  "description": "The Dedale browser app, served by `dedale view` and `--view`",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit && biome check",
+    "test": "rm -rf build && tsc -p tsconfig.node.json && node --test \"build/test/**/*.test.js\"",
+    "fix": "biome check --write"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "24.19.1",
+    "typescript": "7.0.2"
+  }
+}

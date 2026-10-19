@@ -209,7 +209,9 @@ programs and talks to them in JSON lines over stdin and stdout. See
 ## Development
 
 `scripts/check.sh` runs every gate: rustfmt, clippy (pedantic), the Rust and
-Python tests, a stable-toolchain build and `cargo deny`; `--fuzz <seconds>`
-also runs each fuzz target.
+Python tests, the browser app's checks and tests (Node 22 or later), a
+stable-toolchain build and `cargo deny`; `--fuzz <seconds>` also runs each fuzz
+target. The browser app's compiled files (`web/dist/`) are committed, so
+building Dedale itself needs only Cargo.
 
 License: MIT.
