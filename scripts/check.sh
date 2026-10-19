@@ -43,7 +43,8 @@ cargo deny --locked check
 if [[ -n $fuzz_secs ]]; then
     step "fuzz (${fuzz_secs}s per target)"
     for target in $(rustup run nightly cargo fuzz list); do
-        args=(-max_total_time="$fuzz_secs")
+        # Room for a full-size line or map (64 KiB), beyond libFuzzer's 4 KiB default.
+        args=(-max_total_time="$fuzz_secs" -max_len=70000)
         if [[ -f fuzz/dicts/$target.dict ]]; then
             args+=(-dict="fuzz/dicts/$target.dict")
         fi

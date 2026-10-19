@@ -8,4 +8,5 @@ pub mod game;
 pub mod generator;
 pub mod grid;
 pub mod maze;
+pub mod protocol;
 pub mod rng;
