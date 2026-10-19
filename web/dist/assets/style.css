@@ -97,6 +97,7 @@ main {
   --point: #c69214;
   --player-a: #2f6fdf;
   --player-b: #e8590c;
+  --player-both: #9c36b5;
   --on-player: #ffffff;
   --mark: #1d1d22;
   --kind-illegal: #f08c00;
@@ -115,6 +116,7 @@ main {
     --point: #f2c14e;
     --player-a: #5c8dff;
     --player-b: #ff8a3d;
+    --player-both: #cc5de8;
     --on-player: #101014;
     --mark: #f0f0f4;
     --kind-crashed: #ff6b6b;
@@ -373,4 +375,47 @@ pre.scroll {
   min-height: 1.5em;
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
+}
+
+.heatmap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.3rem;
+}
+
+.legend {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ramp {
+  display: inline-block;
+  width: 7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+}
+
+.ramp-player-0 {
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--player-a) 15%, transparent),
+    var(--player-a)
+  );
+}
+
+.ramp-player-1 {
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--player-b) 15%, transparent),
+    var(--player-b)
+  );
+}
+
+.ramp-order {
+  background: linear-gradient(to right, color-mix(in srgb, var(--fg) 15%, transparent), var(--fg));
 }

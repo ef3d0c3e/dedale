@@ -7,6 +7,7 @@ import { describeResult, formatUs, letter, outcomeName, score } from "../format.
 import type { Outcome } from "../types.ts";
 import { MazeCanvas, type Overlay } from "./canvas.ts";
 import type { GameData } from "./data.ts";
+import type { HeatLayer } from "./heat.ts";
 import { advance, DEFAULT_SPEED, SPEEDS, step } from "./playback.ts";
 import {
   type Marker,
@@ -24,6 +25,8 @@ export interface GameViewOptions {
   onTurn?(turn: number): void;
   /** Draws over the maze at a turn (the inspector's marks). */
   overlay?(turn: number): Overlay | null;
+  /** A heatmap under the players at a turn. */
+  heat?(turn: number): HeatLayer | null;
   /** Every time the shown turn changes, playback included. */
   onShow?(turn: number): void;
 }
@@ -59,6 +62,8 @@ export class GameView {
   private readonly board: HTMLElement;
   private readonly head: HTMLElement;
   private readonly hover: HTMLElement;
+  /** The maze and what goes under it (the heatmap legend). */
+  readonly boardColumn: HTMLElement;
   private readonly range: HTMLInputElement;
   private readonly turnLabel: HTMLElement;
   private readonly playButton: HTMLButtonElement;
@@ -80,6 +85,7 @@ export class GameView {
     this.head = h("div", { class: "game-head" });
     this.hover = h("div", { class: "hover muted" }, " ");
     this.board = h("div", { class: "board" }, this.canvas.element);
+    this.boardColumn = h("div", { class: "board-column" }, this.board, this.hover);
     this.side = h("aside", { class: "side" });
     this.range = h("input", {
       type: "range",
@@ -131,12 +137,7 @@ export class GameView {
       "section",
       { class: "game" },
       this.head,
-      h(
-        "div",
-        { class: "game-body" },
-        h("div", { class: "board-column" }, this.board, this.hover),
-        this.side,
-      ),
+      h("div", { class: "game-body" }, this.boardColumn, this.side),
       h("div", { class: "timeline" }, controls, this.range, this.strip),
       this.stats,
     );
@@ -198,7 +199,8 @@ export class GameView {
   /** Redraws the maze (after the overlay changed). */
   draw(): void {
     const overlay = this.options.overlay?.(this.turn) ?? null;
-    this.canvas.draw(this.turn, this.data.model.state(this.turn).players, overlay);
+    const heat = this.options.heat?.(this.turn) ?? null;
+    this.canvas.draw(this.turn, this.data.model.state(this.turn).players, overlay, heat);
   }
 
   dispose(): void {

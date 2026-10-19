@@ -1,5 +1,6 @@
 // Draws a maze at one turn: walls (cached), points, collected cells tinted
 // by who took them, players, and an overlay of marked cells.
+import { strength } from "./heat.js";
 import { cellAt, fit } from "./layout.js";
 function readPalette() {
     const style = getComputedStyle(document.documentElement);
@@ -9,6 +10,7 @@ function readPalette() {
         wall: v("--wall"),
         point: v("--point"),
         players: [v("--player-a"), v("--player-b")],
+        shared: v("--player-both"),
         mark: v("--mark"),
         text: v("--on-player"),
     };
@@ -82,7 +84,7 @@ export class MazeCanvas {
         this.walls = layer;
         return layer;
     }
-    draw(turn, players, overlay = null) {
+    draw(turn, players, overlay = null, heat = null) {
         const ctx = this.element.getContext("2d");
         if (!ctx)
             return;
@@ -91,16 +93,20 @@ export class MazeCanvas {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.drawImage(this.wallLayer(), 0, 0);
         ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-        // Cells already collected, tinted by who took them.
-        ctx.globalAlpha = 0.22;
-        for (const taken of this.model.taken) {
-            if (taken.turn > turn)
-                break;
-            const colour = taken.by === 2 ? p.players[1] : p.players[0];
-            ctx.fillStyle = colour ?? p.point;
-            ctx.fillRect(taken.x * c, taken.y * c, c, c);
+        if (heat) {
+            this.drawHeat(ctx, heat);
         }
-        ctx.globalAlpha = 1;
+        else {
+            // Cells already collected, tinted by who took them.
+            ctx.globalAlpha = 0.22;
+            for (const taken of this.model.taken) {
+                if (taken.turn > turn)
+                    break;
+                ctx.fillStyle = this.takerColour(taken.by);
+                ctx.fillRect(taken.x * c, taken.y * c, c, c);
+            }
+            ctx.globalAlpha = 1;
+        }
         ctx.fillStyle = p.point;
         const round = c >= 6;
         const size = round ? c * 0.18 : Math.max(1, Math.floor(c / 3));
@@ -120,6 +126,36 @@ export class MazeCanvas {
         if (overlay)
             this.drawMarks(ctx, overlay);
         this.drawPlayers(ctx, players);
+    }
+    /** A's colour, B's, or the mark colour for a point both took. */
+    takerColour(by) {
+        if (by === 1)
+            return this.palette.players[0] ?? this.palette.point;
+        if (by === 2)
+            return this.palette.players[1] ?? this.palette.point;
+        return this.palette.shared;
+    }
+    drawHeat(ctx, heat) {
+        const c = this.layout.cell;
+        if (heat.kind === "visits") {
+            ctx.fillStyle = this.palette.players[heat.player] ?? this.palette.mark;
+            const width = this.model.width;
+            heat.counts.forEach((count, i) => {
+                if (count === 0)
+                    return;
+                ctx.globalAlpha = strength(count, heat.max);
+                ctx.fillRect((i % width) * c, Math.floor(i / width) * c, c, c);
+            });
+        }
+        else {
+            const span = Math.max(1, heat.last - heat.first);
+            for (const taken of heat.taken) {
+                ctx.fillStyle = this.takerColour(taken.by);
+                ctx.globalAlpha = strength(taken.turn - heat.first + 1, span + 1);
+                ctx.fillRect(taken.x * c, taken.y * c, c, c);
+            }
+        }
+        ctx.globalAlpha = 1;
     }
     drawMarks(ctx, overlay) {
         const c = this.layout.cell;

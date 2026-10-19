@@ -35,6 +35,8 @@ export class GameView {
     board;
     head;
     hover;
+    /** The maze and what goes under it (the heatmap legend). */
+    boardColumn;
     range;
     turnLabel;
     playButton;
@@ -55,6 +57,7 @@ export class GameView {
         this.head = h("div", { class: "game-head" });
         this.hover = h("div", { class: "hover muted" }, " ");
         this.board = h("div", { class: "board" }, this.canvas.element);
+        this.boardColumn = h("div", { class: "board-column" }, this.board, this.hover);
         this.side = h("aside", { class: "side" });
         this.range = h("input", {
             type: "range",
@@ -85,7 +88,7 @@ export class GameView {
         });
         this.stats = h("div", { class: "stats" });
         const controls = h("div", { class: "controls" }, button("⏮", "First turn (Home)", () => this.jump(0)), button("←", "Previous turn (←)", () => this.jump(step(this.turn, -1, this.last))), this.playButton, button("→", "Next turn (→)", () => this.jump(step(this.turn, 1, this.last))), button("⏭", "Last turn (End)", () => this.jump(this.last)), button("⟨!", "Previous problem (p)", () => this.problem(-1)), button("!⟩", "Next problem (n)", () => this.problem(1)), speed, this.turnLabel);
-        this.element = h("section", { class: "game" }, this.head, h("div", { class: "game-body" }, h("div", { class: "board-column" }, this.board, this.hover), this.side), h("div", { class: "timeline" }, controls, this.range, this.strip), this.stats);
+        this.element = h("section", { class: "game" }, this.head, h("div", { class: "game-body" }, this.boardColumn, this.side), h("div", { class: "timeline" }, controls, this.range, this.strip), this.stats);
         this.canvas.element.addEventListener("mousemove", (event) => this.describeCell(event));
         this.canvas.element.addEventListener("mouseleave", () => {
             this.hover.textContent = " ";
@@ -138,7 +141,8 @@ export class GameView {
     /** Redraws the maze (after the overlay changed). */
     draw() {
         const overlay = this.options.overlay?.(this.turn) ?? null;
-        this.canvas.draw(this.turn, this.data.model.state(this.turn).players, overlay);
+        const heat = this.options.heat?.(this.turn) ?? null;
+        this.canvas.draw(this.turn, this.data.model.state(this.turn).players, overlay, heat);
     }
     dispose() {
         this.pause();
