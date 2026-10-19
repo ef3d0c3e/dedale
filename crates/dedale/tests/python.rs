@@ -118,6 +118,104 @@ fn greedy_beats_random() {
     assert_eq!(record.result.winner, Some(0), "{:?}", record.result);
 }
 
+/// A game of example bots with room to think, so a loaded machine cannot
+/// turn a move into a timeout and change the outcome. Every bot must start
+/// in time and answer every turn.
+fn example_game(bots: &[&str], code: &str, seating: Seating) -> GameRecord {
+    let runtime = PythonRuntime::extract().unwrap();
+    let code: MazeCode = code.parse().unwrap();
+    let entrants = bots
+        .iter()
+        .map(|bot| python_entrant(&runtime, &example_bot(bot)))
+        .collect();
+    let mut config = MatchConfig::new(seating);
+    config.startup = Duration::from_secs(10);
+    config.move_timeout = Duration::from_secs(1);
+    let record = run_match(generate(&code), Some(code), entrants, &config, &mut ()).unwrap();
+    for (player, bot) in bots.iter().enumerate() {
+        let startup = &record.players[player].startup;
+        assert_eq!(startup.outcome, StartupOutcome::Ok, "{bot}: {startup:?}");
+        let problems: Vec<_> = record
+            .turns
+            .iter()
+            .filter(|t| t.players[player].outcome != Outcome::Ok)
+            .map(|t| (t.turn, t.players[player].outcome, &t.players[player].error))
+            .collect();
+        assert!(problems.is_empty(), "{bot}: {problems:?}");
+    }
+    record
+}
+
+fn cleared_on(record: &GameRecord) -> u32 {
+    assert_eq!(
+        record.result.reason,
+        EndReason::Cleared,
+        "{:?}",
+        record.result
+    );
+    record.result.turns
+}
+
+#[test]
+fn the_tour_bot_clears_mazes_faster_than_greedy() {
+    for code in [
+        "ded2-31x31-l25-p65535-9f3a0c11d2e4b6a8",
+        "ded2-31x31-l25-p100-0000000000000002",
+    ] {
+        let greedy = cleared_on(&example_game(&["greedy_bot"], code, Seating::Solo));
+        let record = example_game(&["tour_bot"], code, Seating::Solo);
+        let tour = cleared_on(&record);
+        assert!(
+            tour * 100 < greedy * 95,
+            "{code}: tour {tour}, greedy {greedy}"
+        );
+        let log = &record.players[0].startup.log;
+        assert!(log[0].starts_with("route: "), "{log:?}");
+    }
+}
+
+#[test]
+fn the_rollout_bot_beats_greedy_from_either_corner() {
+    let code = "ded2-21x21-l25-p65535-0123456789abcdef";
+    for seating in [Seating::Duo, Seating::DuoSwapped] {
+        let record = example_game(&["rollout_bot", "greedy_bot"], code, seating);
+        assert_eq!(record.result.reason, EndReason::Cleared);
+        assert_eq!(
+            record.result.winner,
+            Some(0),
+            "{seating:?}: {:?}",
+            record.result
+        );
+    }
+}
+
+#[test]
+fn two_rollout_bots_do_not_stall() {
+    // Each expects the other to play greedily: without its guard, both
+    // stepped away from the same points until the turn limit.
+    let code = "ded2-21x21-l25-p40-0000000000000005";
+    let record = example_game(&["rollout_bot", "rollout_bot"], code, Seating::Duo);
+    assert_eq!(
+        record.result.reason,
+        EndReason::Cleared,
+        "{:?}",
+        record.result
+    );
+}
+
+#[test]
+fn the_combo_bot_plans_alone_and_looks_ahead_in_a_duo() {
+    let code = "ded2-21x21-l25-p65535-0123456789abcdef";
+    let solo = example_game(&["combo_bot"], code, Seating::Solo);
+    assert_eq!(solo.players[0].startup.log[0], "playing tour_bot");
+    let tour = example_game(&["tour_bot"], code, Seating::Solo);
+    assert_eq!(cleared_on(&solo), cleared_on(&tour));
+
+    let duo = example_game(&["combo_bot", "greedy_bot"], code, Seating::Duo);
+    assert_eq!(duo.players[0].startup.log, ["playing rollout_bot"]);
+    assert_eq!(duo.result.winner, Some(0), "{:?}", duo.result);
+}
+
 #[test]
 fn a_slow_init_starts_late() {
     let record = play_test_bot("slow_init");

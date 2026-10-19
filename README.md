@@ -126,6 +126,41 @@ Python 3.10 or later.
 
 For editor completion, install the package: `pip install -e bindings/python`.
 
+### Beyond greedy
+
+Two more examples in `examples/python/` beat the greedy bot, each with
+one idea. Measured on 31×31 mazes with `dedale tournament`:
+
+| Bot | Idea | Solo: turns to clear | Duo against greedy |
+|---|---|---|---|
+| `tour_bot.py` | Plans the whole route in `init()`: nearest point first, then 2-opt (reverse any stretch that makes the route shorter), on maze distances | 12% fewer than greedy (16% with 100 points) | loses, 4 games to 6 |
+| `rollout_bot.py` | For each move, plays the game out with both players greedy, and keeps the move with the best ending | 10% fewer | wins 19 games of 20, one drawn, with 56–58% of the points |
+
+What they show:
+
+- **Alone, it is a routing problem.** Greedy keeps leaving points behind and
+  crossing the maze again for them; a route planned with the startup
+  budget avoids that.
+- **In a duo, it is a race**, decided by wasted steps: both players move
+  every turn, so whoever lands on empty cells less often wins. A planned
+  route goes stale as the opponent empties it, which is why `tour_bot`
+  loses there. Looking ahead does not: `rollout_bot` steps aside from
+  races it would lose and takes the points greedy was heading for.
+- **Stay within the budgets.** `tour_bot` plans until `dedale.time_left()`
+  says to stop (on a maze too large to plan in time it plays greedy), and
+  `rollout_bot` stops its playouts the same way.
+
+The tables come from:
+
+```sh
+dedale tournament --solo examples/python/greedy_bot.py examples/python/tour_bot.py \
+    examples/python/rollout_bot.py --games 6 --seed 1
+dedale tournament examples/python/rollout_bot.py examples/python/greedy_bot.py --games 5 --seed 3
+```
+
+Add `--points 100` for sparse mazes, and `--view` to watch them think: the
+inspector shows `tour_bot`'s route and `rollout_bot`'s playouts as marks.
+
 ## Commands
 
 ### `dedale run <bot> [<bot>]`
