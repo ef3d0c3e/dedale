@@ -20,6 +20,14 @@ export interface PlayerState {
   last_move: Move | null;
 }
 
+/** A point taken: where, on which turn, by whom (bit 0 for A, bit 1 for B). */
+export interface Taken {
+  x: number;
+  y: number;
+  turn: number;
+  by: number;
+}
+
 export interface GameState {
   /** Turns played. */
   turn: number;
@@ -38,6 +46,10 @@ export class GameModel {
   private readonly takenAt: Int32Array;
   /** Points left after each turn, from turn 0. */
   private readonly remainingAfter: number[];
+  /** Every point taken, in order. */
+  readonly taken: Taken[] = [];
+  /** The cells holding a point at the start. */
+  readonly points: readonly (readonly [number, number])[];
 
   constructor(maze: MazeData, starts: readonly Pos[], turns: readonly TurnRecord[] = []) {
     this.width = maze.width;
@@ -45,9 +57,12 @@ export class GameModel {
     this.cells = maze.cells;
     this.starts = starts;
     this.takenAt = new Int32Array(maze.width * maze.height).fill(NEVER);
-    let points = 0;
-    for (const c of maze.cells) if (c === ".") points++;
-    this.remainingAfter = [points];
+    const points: [number, number][] = [];
+    for (let i = 0; i < maze.cells.length; i++) {
+      if (maze.cells[i] === ".") points.push([i % maze.width, Math.floor(i / maze.width)]);
+    }
+    this.points = points;
+    this.remainingAfter = [points.length];
     for (const turn of turns) this.push(turn);
   }
 
@@ -72,7 +87,14 @@ export class GameModel {
       const i = this.index(x, y);
       if (i === null || (this.takenAt[i] ?? NEVER) !== NEVER) continue;
       this.takenAt[i] = t;
-      if (this.cells[i] === ".") remaining--;
+      if (this.cells[i] === ".") {
+        remaining--;
+        let by = 0;
+        turn.players.forEach((p, player) => {
+          if (p.pos[0] === x && p.pos[1] === y) by |= 1 << player;
+        });
+        this.taken.push({ x, y, turn: t, by });
+      }
     }
     this.turns.push(turn);
     this.remainingAfter.push(remaining);

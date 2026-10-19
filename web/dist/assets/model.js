@@ -17,17 +17,23 @@ export class GameModel {
     takenAt;
     /** Points left after each turn, from turn 0. */
     remainingAfter;
+    /** Every point taken, in order. */
+    taken = [];
+    /** The cells holding a point at the start. */
+    points;
     constructor(maze, starts, turns = []) {
         this.width = maze.width;
         this.height = maze.height;
         this.cells = maze.cells;
         this.starts = starts;
         this.takenAt = new Int32Array(maze.width * maze.height).fill(NEVER);
-        let points = 0;
-        for (const c of maze.cells)
-            if (c === ".")
-                points++;
-        this.remainingAfter = [points];
+        const points = [];
+        for (let i = 0; i < maze.cells.length; i++) {
+            if (maze.cells[i] === ".")
+                points.push([i % maze.width, Math.floor(i / maze.width)]);
+        }
+        this.points = points;
+        this.remainingAfter = [points.length];
         for (const turn of turns)
             this.push(turn);
     }
@@ -47,8 +53,15 @@ export class GameModel {
             if (i === null || (this.takenAt[i] ?? NEVER) !== NEVER)
                 continue;
             this.takenAt[i] = t;
-            if (this.cells[i] === ".")
+            if (this.cells[i] === ".") {
                 remaining--;
+                let by = 0;
+                turn.players.forEach((p, player) => {
+                    if (p.pos[0] === x && p.pos[1] === y)
+                        by |= 1 << player;
+                });
+                this.taken.push({ x, y, turn: t, by });
+            }
         }
         this.turns.push(turn);
         this.remainingAfter.push(remaining);

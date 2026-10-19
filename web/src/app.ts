@@ -16,7 +16,7 @@ function mount(route: Route, container: HTMLElement, ctx: Context): View {
     case "home":
       return home(container, ctx);
     case "game":
-      return game(container, ctx, route.path);
+      return game(container, ctx, route.path, route.turn);
     case "tournament":
       return tournament(container, ctx, route.path);
     case "live":

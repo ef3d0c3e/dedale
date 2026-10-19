@@ -88,3 +88,178 @@ main {
 .error-text {
   color: var(--error);
 }
+
+:root {
+  --floor: #ffffff;
+  --wall: #2b2d42;
+  --point: #c69214;
+  --player-a: #2f6fdf;
+  --player-b: #e8590c;
+  --on-player: #ffffff;
+  --mark: #1d1d22;
+  --kind-illegal: #f08c00;
+  --kind-invalid: #9c36b5;
+  --kind-error: #e03131;
+  --kind-timeout: #fab005;
+  --kind-not-ready: #868e96;
+  --kind-crashed: #862e2e;
+  --kind-late: #0ca678;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --floor: #23232b;
+    --wall: #8d93ab;
+    --point: #f2c14e;
+    --player-a: #5c8dff;
+    --player-b: #ff8a3d;
+    --on-player: #101014;
+    --mark: #f0f0f4;
+    --kind-crashed: #ff6b6b;
+  }
+}
+
+h2 {
+  margin: 0.2rem 0;
+  font-size: 1.25rem;
+}
+
+.path {
+  margin: 0 0 0.6rem;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+
+button,
+select {
+  font: inherit;
+  color: var(--fg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0.15rem 0.55rem;
+  cursor: pointer;
+}
+
+button:hover,
+select:hover {
+  border-color: var(--accent);
+}
+
+.game-head .head-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.2rem;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.result {
+  margin-top: 0.3rem;
+  font-weight: 600;
+}
+
+.chip {
+  white-space: nowrap;
+}
+
+.chip b:first-child {
+  display: inline-block;
+  min-width: 1.3em;
+  padding: 0 0.25em;
+  border-radius: 4px;
+  text-align: center;
+  color: var(--on-player);
+}
+
+.player-0 b:first-child {
+  background: var(--player-a);
+}
+
+.player-1 b:first-child {
+  background: var(--player-b);
+}
+
+.game-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0.8rem 0;
+}
+
+.board-column {
+  flex: 3 1 26rem;
+  min-width: 0;
+}
+
+.board {
+  width: 100%;
+}
+
+.maze {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.hover {
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.side {
+  flex: 2 1 18rem;
+  min-width: 0;
+}
+
+.side:empty {
+  display: none;
+}
+
+.timeline .controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.turn-label {
+  margin-left: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline input[type="range"] {
+  width: 100%;
+  margin: 0.5rem 0 0.2rem;
+}
+
+.markers {
+  display: block;
+  cursor: pointer;
+}
+
+.stats {
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+  padding: 0.25rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+
+th {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+td.num {
+  text-align: right;
+}
