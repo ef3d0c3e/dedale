@@ -1,6 +1,7 @@
 //! Serving the browser app from the command line (`dedale view`, `--view`).
 
 use std::io::{self, Write};
+use std::path::Path;
 use std::sync::Arc;
 use std::thread;
 
@@ -8,6 +9,7 @@ use clap::Args;
 
 use super::CliResult;
 use crate::interrupt;
+use crate::web::live::{Live, LiveMode};
 use crate::web::server::{Handler, Server, ServerHandle, open_browser};
 
 #[derive(Debug, Clone, Args)]
@@ -48,5 +50,58 @@ impl ServeArgs {
 pub(crate) fn wait_for_interrupt() {
     while !interrupt::requested() {
         thread::sleep(interrupt::POLL);
+    }
+}
+
+#[derive(Debug, Clone, Args)]
+pub(crate) struct LiveArgs {
+    /// Follow in the browser app; play starts when Start is pressed there.
+    #[arg(long)]
+    pub view: bool,
+    #[command(flatten)]
+    pub serve: ServeArgs,
+}
+
+impl LiveArgs {
+    /// With `--view`: serves a live session over `out` and waits for Start
+    /// in the page (or Ctrl-C).
+    pub(crate) fn start(
+        &self,
+        mode: LiveMode,
+        title: String,
+        bots: Vec<String>,
+        games: usize,
+        out: &Path,
+    ) -> CliResult<Option<LiveServer>> {
+        if !self.view {
+            return Ok(None);
+        }
+        let live = Live::new(mode, title, bots, games, out)?;
+        let handle = self.serve.start(live.clone(), "#/live")?;
+        writeln!(
+            io::stdout().lock(),
+            "        press Start in the page to begin, Ctrl-C to quit"
+        )?;
+        live.wait_for_start()?;
+        Ok(Some(LiveServer { live, handle }))
+    }
+}
+
+/// A live session being served.
+pub(crate) struct LiveServer {
+    pub live: Arc<Live>,
+    handle: ServerHandle,
+}
+
+impl LiveServer {
+    /// Keeps the finished session in the page until Ctrl-C.
+    pub(crate) fn linger(self) -> CliResult {
+        writeln!(
+            io::stdout().lock(),
+            "        still serving the page, Ctrl-C to stop"
+        )?;
+        wait_for_interrupt();
+        self.handle.stop();
+        Ok(())
     }
 }

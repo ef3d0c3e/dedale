@@ -140,6 +140,7 @@ Plays one game. The maze's **code** is printed first: pass it back with
 | `--startup-ms`, `--move-ms`, `--max-turns` | Timing and turn limit |
 | `--swap` | Start the first bot bottom-right |
 | `--watch`, `--delay MS` | Draw every turn as it is played |
+| `--view` | Follow the game in the browser app instead (see `dedale view`); the bots start when you press Start there, and the page sets the pace. Dedale keeps serving the finished game until Ctrl-C. With `--port N`, `--no-open` |
 | `--marks a\|b\|none`, `--ascii`, `--color auto\|always\|never` | Drawing options |
 | `--out DIR` | Where the replay and logs go (default `dedale-out/<time>-<maze>/`) |
 | `--python PATH` | Interpreter for `.py` bots (or `DEDALE_PYTHON`; default `python3`) |
@@ -188,7 +189,9 @@ points, a draw 1. With one bot, or `--solo`, every bot plays every maze alone
 and is ranked by mazes cleared, then total turns. `--games N` sets the number
 of mazes (default 10); `--seed` is the master seed all maze codes derive from,
 so a tournament can be replayed exactly. It writes every game's replay plus a
-`tournament.json` with the leaderboard.
+`tournament.json` with the leaderboard. `--view` follows the whole tournament
+in the browser app, as with `dedale run`: one Start, every game live, the
+leaderboard after each game.
 
 ### `dedale view [DIR]`
 

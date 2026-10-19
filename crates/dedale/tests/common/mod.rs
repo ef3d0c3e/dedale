@@ -2,6 +2,8 @@
 
 #![allow(dead_code, unreachable_pub)]
 
+pub mod http;
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -9,12 +11,17 @@ use dedale::bot::BotSpec;
 use dedale::python::PythonRuntime;
 use dedale::referee::Entrant;
 
-/// A command running the scripted fake bot with `args`.
-pub fn fake_bot(args: &[&str]) -> Command {
+/// The scripted fake bot's executable.
+pub fn fake_bot_path() -> &'static str {
     let Some(path) = option_env!("CARGO_BIN_EXE_dedale-fake-bot") else {
         panic!("dedale-fake-bot was not built: run the tests with --all-features");
     };
-    let mut command = Command::new(path);
+    path
+}
+
+/// A command running the scripted fake bot with `args`.
+pub fn fake_bot(args: &[&str]) -> Command {
+    let mut command = Command::new(fake_bot_path());
     command.args(args);
     command
 }

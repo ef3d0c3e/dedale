@@ -61,7 +61,17 @@ pub struct Broadcast {
 impl Broadcast {
     /// A new subscriber, which receives every event published from now on.
     pub fn subscribe(&mut self) -> Receiver<Event> {
+        self.subscribe_with([])
+    }
+
+    /// A new subscriber that receives `first` (a snapshot), then every event
+    /// published from now on.
+    pub fn subscribe_with(&mut self, first: impl IntoIterator<Item = Event>) -> Receiver<Event> {
         let (sender, receiver) = mpsc::sync_channel(BACKLOG);
+        for event in first {
+            // Fresh channel: room for a few events.
+            let _ = sender.try_send(event);
+        }
         self.subscribers.push(sender);
         receiver
     }

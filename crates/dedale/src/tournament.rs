@@ -275,8 +275,9 @@ pub fn game_dir(plan: &GamePlan, names: &[String]) -> PathBuf {
 
 /// Watches a tournament: every game as an [`Observer`], plus each result.
 pub trait TournamentObserver: Observer {
-    /// After each game, once its replay is written.
-    fn game_done(&mut self, _plan: &GamePlan, _record: &GameRecord) {}
+    /// After each game, once its replay is written, with every game played
+    /// so far (the one just done last).
+    fn game_done(&mut self, _games: &[(GamePlan, GameRecord)]) {}
 }
 
 impl TournamentObserver for () {}
@@ -319,8 +320,8 @@ pub fn play(
         )?;
         let path = dir.join("replay.json");
         replay::write(&path, &record).map_err(|e| write_error(e, &path))?;
-        observer.game_done(plan, &record);
         games.push((plan.clone(), record));
+        observer.game_done(&games);
     }
     Ok(games)
 }

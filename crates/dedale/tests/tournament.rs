@@ -55,7 +55,9 @@ impl Observer for Games {
 }
 
 impl TournamentObserver for Games {
-    fn game_done(&mut self, plan: &GamePlan, record: &GameRecord) {
+    fn game_done(&mut self, games: &[(GamePlan, GameRecord)]) {
+        assert_eq!(games.len(), self.done.len() + 1);
+        let (plan, record) = games.last().unwrap();
         let names = ["lap".to_owned(), "sitter".to_owned()];
         let path = self.dir.join(game_dir(plan, &names)).join("replay.json");
         assert_eq!(&replay::read(&path).unwrap(), record);

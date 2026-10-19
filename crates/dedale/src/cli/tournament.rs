@@ -1,29 +1,35 @@
 //! `dedale tournament`: a series of games and a leaderboard.
 
+use std::error::Error;
 use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Duration;
 
 use clap::Args;
 use dedale_core::code::MazeParams;
 use dedale_core::game::Seating;
+use dedale_core::game::Snapshot;
 use dedale_core::generator::generate;
 use dedale_core::maze::Maze;
-use dedale_core::record::GameRecord;
+use dedale_core::record::{GameRecord, StartupRecord, TurnRecord};
 use dedale_core::rng::fresh_seed;
 
 use super::run::{TimingArgs, unique_names};
+use super::serve::LiveArgs;
 use super::summary::{describe, format_table, score};
 use super::{CliResult, ColorChoice, MazeArgs, timestamp};
 use crate::bot::BotSpec;
 use crate::python::PythonRuntime;
-use crate::referee::{Entrant, Observer};
+use crate::referee::{Entrant, GameStart, Observer};
 use crate::render::{Style, format_us};
 use crate::tournament::{
     BotInfo, GameEntry, GamePlan, MazeSource, Mode, Standing, TOURNAMENT_FORMAT,
     TournamentObserver, TournamentReport, game_dir, play, schedule, standings,
 };
+use crate::web::live::{Live, LiveMode, LiveObserver};
 
 #[derive(Debug, Args)]
 pub(crate) struct TournamentArgs {
@@ -47,6 +53,8 @@ pub(crate) struct TournamentArgs {
     /// Colour the output.
     #[arg(long, value_enum, default_value_t = ColorChoice::Auto)]
     color: ColorChoice,
+    #[command(flatten)]
+    live: LiveArgs,
     /// Output directory [default: dedale-out/<time>-tournament].
     #[arg(long, value_name = "DIR")]
     out: Option<PathBuf>,
@@ -98,40 +106,41 @@ pub(crate) fn run(args: &TournamentArgs) -> CliResult {
         (None, Some(code)) => generate(&code),
         (None, None) => unreachable!("generated mazes have codes"),
     };
+    let title = format!(
+        "{mode_name} tournament: {}, {} mazes",
+        names.join(", "),
+        args.games
+    );
+    let live = args.live.start(
+        LiveMode::Tournament,
+        title,
+        names.clone(),
+        plans.len(),
+        &out,
+    )?;
+    let fail = |e: Box<dyn Error>| {
+        if let Some(l) = &live {
+            l.live.failed(&e.to_string());
+        }
+        e
+    };
     // The seating is set per game.
     let config = args.timing.config(Seating::Solo);
     let mut progress = Progress {
         names: &names,
         total: plans.len(),
-    };
-    let games = play(&plans, &names, maze, entrant, &config, &out, &mut progress)?;
-
-    let report = TournamentReport {
-        format: TOURNAMENT_FORMAT,
-        dedale: env!("CARGO_PKG_VERSION").to_owned(),
-        master_seed: format!("{master_seed:016x}"),
         mode,
-        maze: source,
-        startup_ms: args.timing.startup_ms,
-        move_ms: args.timing.move_ms,
-        max_turns: args.timing.max_turns,
-        bots: specs
-            .iter()
-            .zip(&names)
-            .map(|(spec, name)| BotInfo {
-                name: name.clone(),
-                path: spec.path().display().to_string(),
-            })
-            .collect(),
-        games: games
-            .iter()
-            .map(|(plan, record)| entry(plan, record, &names))
-            .collect(),
-        leaderboard: standings(mode, &names, &games),
+        live: live
+            .as_ref()
+            .map(|l| (Arc::clone(&l.live), l.live.observer())),
     };
+    let games = play(&plans, &names, maze, entrant, &config, &out, &mut progress)
+        .map_err(|e| fail(e.into()))?;
+
+    let report = report(args, mode, master_seed, source, &specs, &names, &games);
     let path = out.join("tournament.json");
     fs::write(&path, serde_json::to_string_pretty(&report)? + "\n")
-        .map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+        .map_err(|e| fail(format!("cannot write {}: {e}", path.display()).into()))?;
 
     let style = Style {
         ascii: args.ascii,
@@ -145,19 +154,56 @@ pub(crate) fn run(args: &TournamentArgs) -> CliResult {
     )?;
     writeln!(stdout)?;
     writeln!(stdout, "results  {}", path.display())?;
-    Ok(())
+    drop(stdout);
+    match live {
+        Some(l) => {
+            l.live.finished("tournament.json");
+            l.linger()
+        }
+        None => Ok(()),
+    }
 }
 
-/// Prints a line per finished game.
+/// Prints a line per finished game, and tells the live page (`--view`)
+/// everything.
 struct Progress<'a> {
     names: &'a [String],
     total: usize,
+    mode: Mode,
+    live: Option<(Arc<Live>, LiveObserver)>,
 }
 
-impl Observer for Progress<'_> {}
+impl Observer for Progress<'_> {
+    fn game_start(&mut self, start: &GameStart) {
+        if let Some((_, observer)) = &mut self.live {
+            observer.game_start(start);
+        }
+    }
+
+    fn startup(&mut self, player: usize, startup: &StartupRecord) {
+        if let Some((_, observer)) = &mut self.live {
+            observer.startup(player, startup);
+        }
+    }
+
+    fn turn(&mut self, snapshot: &Snapshot, turn: &TurnRecord) {
+        if let Some((_, observer)) = &mut self.live {
+            observer.turn(snapshot, turn);
+        }
+    }
+
+    fn hold(&mut self, turn: u32) -> Option<Duration> {
+        self.live
+            .as_mut()
+            .and_then(|(_, observer)| observer.hold(turn))
+    }
+}
 
 impl TournamentObserver for Progress<'_> {
-    fn game_done(&mut self, plan: &GamePlan, record: &GameRecord) {
+    fn game_done(&mut self, games: &[(GamePlan, GameRecord)]) {
+        let Some((plan, record)) = games.last() else {
+            return;
+        };
         let dir = game_dir(plan, self.names);
         let name = dir
             .file_name()
@@ -170,6 +216,45 @@ impl TournamentObserver for Progress<'_> {
             self.total,
             describe(record)
         );
+        if let Some((live, _)) = &self.live {
+            live.game_done(record, &dir.join("replay.json").display().to_string());
+            live.standings(&standings(self.mode, self.names, games));
+        }
+    }
+}
+
+/// `tournament.json`.
+fn report(
+    args: &TournamentArgs,
+    mode: Mode,
+    master_seed: u64,
+    maze: MazeSource,
+    specs: &[BotSpec],
+    names: &[String],
+    games: &[(GamePlan, GameRecord)],
+) -> TournamentReport {
+    TournamentReport {
+        format: TOURNAMENT_FORMAT,
+        dedale: env!("CARGO_PKG_VERSION").to_owned(),
+        master_seed: format!("{master_seed:016x}"),
+        mode,
+        maze,
+        startup_ms: args.timing.startup_ms,
+        move_ms: args.timing.move_ms,
+        max_turns: args.timing.max_turns,
+        bots: specs
+            .iter()
+            .zip(names)
+            .map(|(spec, name)| BotInfo {
+                name: name.clone(),
+                path: spec.path().display().to_string(),
+            })
+            .collect(),
+        games: games
+            .iter()
+            .map(|(plan, record)| entry(plan, record, names))
+            .collect(),
+        leaderboard: standings(mode, names, games),
     }
 }
 

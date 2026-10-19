@@ -10,12 +10,14 @@ use clap::{Args, ValueEnum};
 use dedale_core::game::{Game, Seating, Snapshot};
 use dedale_core::record::TurnRecord;
 
+use super::serve::LiveArgs;
 use super::{CliResult, ColorChoice, MazeArgs, summary, timestamp};
 use crate::bot::BotSpec;
 use crate::python::PythonRuntime;
 use crate::referee::{Entrant, GameStart, MatchConfig, Observer, run_match};
 use crate::render::{Frame, Style, render};
 use crate::replay;
+use crate::web::live::LiveMode;
 
 #[derive(Debug, Args)]
 pub(crate) struct RunArgs {
@@ -31,7 +33,9 @@ pub(crate) struct RunArgs {
     #[arg(long)]
     swap: bool,
     #[command(flatten)]
-    view: ViewArgs,
+    display: WatchArgs,
+    #[command(flatten)]
+    live: LiveArgs,
     /// Output directory [default: dedale-out/<time>-<maze>].
     #[arg(long, value_name = "DIR")]
     out: Option<PathBuf>,
@@ -70,9 +74,9 @@ impl TimingArgs {
 }
 
 #[derive(Debug, Clone, Args)]
-pub(crate) struct ViewArgs {
+pub(crate) struct WatchArgs {
     /// Show every turn as it is played.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "view")]
     pub watch: bool,
     /// Pause after each shown turn, in milliseconds.
     #[arg(long, value_name = "MS", default_value_t = 0, requires = "watch")]
@@ -88,7 +92,7 @@ pub(crate) struct ViewArgs {
     pub color: ColorChoice,
 }
 
-impl ViewArgs {
+impl WatchArgs {
     pub(crate) fn style(&self) -> Style {
         Style {
             ascii: self.ascii,
@@ -149,29 +153,51 @@ pub(crate) fn run(args: &RunArgs) -> CliResult {
         .collect();
 
     let config = args.timing.config(seating);
-    let style = args.view.style();
+    let style = args.display.style();
+    let title = format!("{} on {maze_name}", names.join(" vs "));
+    let live = args
+        .live
+        .start(LiveMode::Run, title, names.clone(), 1, &out)?;
     let mut watcher = Watcher {
-        names: names.clone(),
+        names,
         max_turns: 0,
         style,
-        marks: args.view.marks.player(),
+        marks: args.display.marks.player(),
         clear: std::io::stdout().is_terminal(),
-        delay: Duration::from_millis(args.view.delay),
+        delay: Duration::from_millis(args.display.delay),
         shown: Instant::now(),
     };
-    let observer: &mut dyn Observer = if args.view.watch {
-        &mut watcher
-    } else {
-        &mut ()
+    let mut live_observer = live.as_ref().map(|l| l.live.observer());
+    let observer: &mut dyn Observer = match &mut live_observer {
+        Some(observer) => observer,
+        None if args.display.watch => &mut watcher,
+        None => &mut (),
     };
-    let record = run_match(maze, code, entrants, &config, observer)?;
+    let fail = |e: Box<dyn std::error::Error>| {
+        if let Some(l) = &live {
+            l.live.failed(&e.to_string());
+        }
+        e
+    };
+    let record = run_match(maze, code, entrants, &config, observer).map_err(|e| fail(e.into()))?;
 
     let path = out.join("replay.json");
-    replay::write(&path, &record).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+    replay::write(&path, &record)
+        .map_err(|e| fail(format!("cannot write {}: {e}", path.display()).into()))?;
+    if let Some(l) = &live {
+        l.live.game_done(&record, "replay.json");
+    }
     let mut stdout = std::io::stdout().lock();
     summary::print_game(&mut stdout, &record, style)?;
     writeln!(stdout, "replay  {}", path.display())?;
-    Ok(())
+    drop(stdout);
+    match live {
+        Some(l) => {
+            l.live.finished("replay.json");
+            l.linger()
+        }
+        None => Ok(()),
+    }
 }
 
 /// Shows each turn of a game as it is played.
