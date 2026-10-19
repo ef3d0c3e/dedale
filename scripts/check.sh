@@ -43,7 +43,11 @@ cargo deny --locked check
 if [[ -n $fuzz_secs ]]; then
     step "fuzz (${fuzz_secs}s per target)"
     for target in $(rustup run nightly cargo fuzz list); do
-        rustup run nightly cargo fuzz run "$target" -- -max_total_time="$fuzz_secs"
+        args=(-max_total_time="$fuzz_secs")
+        if [[ -f fuzz/dicts/$target.dict ]]; then
+            args+=(-dict="fuzz/dicts/$target.dict")
+        fi
+        rustup run nightly cargo fuzz run "$target" -- "${args[@]}"
     done
 fi
 

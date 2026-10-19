@@ -22,3 +22,10 @@ path = "fuzz_targets/map_parse.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "maze_code"
+path = "fuzz_targets/maze_code.rs"
+test = false
+doc = false
+bench = false
