@@ -29,3 +29,10 @@ path = "fuzz_targets/maze_code.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "generate"
+path = "fuzz_targets/generate.rs"
+test = false
+doc = false
+bench = false

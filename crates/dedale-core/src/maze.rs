@@ -47,7 +47,11 @@ impl Maze {
     /// The first rule `grid` breaks, checked in the order of [`MazeError`].
     pub fn new(grid: Grid) -> Result<Self, MazeError> {
         let (width, height) = (grid.width(), grid.height());
-        if width < MIN_SIZE || height < MIN_SIZE || width % 2 == 0 || height % 2 == 0 {
+        if width < MIN_SIZE
+            || height < MIN_SIZE
+            || width.is_multiple_of(2)
+            || height.is_multiple_of(2)
+        {
             return Err(MazeError::BadSize { width, height });
         }
         if let Some(pos) = grid
