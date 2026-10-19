@@ -4,6 +4,7 @@
 //! it can be property-tested and fuzzed without spawning bots.
 
 pub mod code;
+pub mod game;
 pub mod generator;
 pub mod grid;
 pub mod maze;

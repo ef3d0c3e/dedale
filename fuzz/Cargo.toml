@@ -36,3 +36,10 @@ path = "fuzz_targets/generate.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "engine"
+path = "fuzz_targets/engine.rs"
+test = false
+doc = false
+bench = false
