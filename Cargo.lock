@@ -225,6 +225,7 @@ dependencies = [
  "ctrlc",
  "dedale-core",
  "nix",
+ "serde",
  "serde_json",
  "tempfile",
  "thiserror",

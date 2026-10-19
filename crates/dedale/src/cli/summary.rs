@@ -87,21 +87,33 @@ fn table(record: &GameRecord, style: Style) -> String {
             },
         ]);
     }
-    let widths: Vec<usize> = (0..header.len())
-        .map(|c| rows.iter().map(|r| r[c].chars().count()).max().unwrap_or(0))
+    format_table(&rows, &[2, 3])
+}
+
+/// Rows of cells in aligned columns, two spaces apart; the columns in
+/// `right` (numbers) are right-aligned.
+pub(crate) fn format_table<R: AsRef<[String]>>(rows: &[R], right: &[usize]) -> String {
+    let columns = rows.iter().map(|r| r.as_ref().len()).max().unwrap_or(0);
+    let widths: Vec<usize> = (0..columns)
+        .map(|c| {
+            rows.iter()
+                .filter_map(|r| r.as_ref().get(c))
+                .map(|cell| cell.chars().count())
+                .max()
+                .unwrap_or(0)
+        })
         .collect();
     let mut out = String::new();
-    for row in &rows {
+    for row in rows {
         let mut line = String::new();
-        for (c, cell) in row.iter().enumerate() {
-            let pad = widths[c] - cell.chars().count();
-            // Numbers right-aligned, text left-aligned.
-            if matches!(c, 2 | 3) {
-                line.push_str(&" ".repeat(pad));
+        for (c, cell) in row.as_ref().iter().enumerate() {
+            let pad = " ".repeat(widths[c] - cell.chars().count());
+            if right.contains(&c) {
+                line.push_str(&pad);
                 line.push_str(cell);
             } else {
                 line.push_str(cell);
-                line.push_str(&" ".repeat(pad));
+                line.push_str(&pad);
             }
             line.push_str("  ");
         }

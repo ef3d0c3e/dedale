@@ -27,11 +27,10 @@ clap = { version = "4.6.7", features = ["derive", "env"] }
 ctrlc = { version = "3.5.2", features = ["termination"] }
 dedale-core.workspace = true
 nix = { version = "0.31.3", default-features = false, features = ["signal"] }
+serde.workspace = true
+serde_json.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
-
-[dev-dependencies]
-serde_json.workspace = true
 
 [lints]
 workspace = true
