@@ -5,6 +5,7 @@ import { describeResult } from "../format.js";
 import { fromLive, fromRecord, sync } from "../game/data.js";
 import { GameScreen } from "../game/screen.js";
 import { DELAYS, LiveController, nearestDelay, paceLabel } from "../live/controller.js";
+import { record } from "../live.js";
 import { leaderboard, players } from "../results.js";
 import { routeHash } from "../router.js";
 import { table } from "../table.js";
@@ -18,6 +19,15 @@ export function live(container, ctx) {
     }
     const controller = new LiveController();
     const tournament = ctx.session.mode === "tournament";
+    // For the end-to-end tests, and the curious in the console: a game as
+    // this page assembled it from the stream (the latest, or game `n`).
+    const hook = {
+        record: (n) => {
+            const game = n === undefined ? controller.game : controller.state.game(n);
+            return game ? record(game) : null;
+        },
+    };
+    Object.assign(globalThis, { dedaleLive: hook });
     const phase = h("span", { class: "phase" });
     const connection = h("span", { class: "connection muted" }, "connecting…");
     const start = h("button", {
@@ -68,6 +78,7 @@ export function live(container, ctx) {
     let shown = null;
     let frame = null;
     let lastRefresh = 0;
+    let lastPhase = controller.state.session?.phase;
     let disposed = false;
     const show = (game, data, streamed) => {
         shown?.screen.dispose();
@@ -184,8 +195,11 @@ export function live(container, ctx) {
         frame = null;
         renderStatus();
         const now = performance.now();
-        if (now - lastRefresh >= REFRESH_MS || !shown) {
+        // A new phase (finished, failed) shows everything at once.
+        const phaseNow = controller.state.session?.phase;
+        if (now - lastRefresh >= REFRESH_MS || !shown || phaseNow !== lastPhase) {
             lastRefresh = now;
+            lastPhase = phaseNow;
             refreshGame();
             renderTournament();
         }
@@ -214,6 +228,7 @@ export function live(container, ctx) {
     return {
         dispose() {
             disposed = true;
+            Reflect.deleteProperty(globalThis, "dedaleLive");
             close();
             if (frame !== null)
                 cancelAnimationFrame(frame);

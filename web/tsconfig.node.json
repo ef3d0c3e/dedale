@@ -8,5 +8,5 @@
     "rootDir": ".",
     "outDir": "build"
   },
-  "include": ["src", "test", "scripts"]
+  "include": ["src", "test", "scripts", "e2e"]
 }

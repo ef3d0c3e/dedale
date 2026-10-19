@@ -56,6 +56,11 @@ fi
     fi
 )
 
+step "end to end"
+# The browser app in headless Chromium (or DEDALE_CHROMIUM), driving the
+# debug build of dedale and the fake bot that the tests above built.
+(cd web && npm run --silent e2e)
+
 step "stable build"
 if rustup toolchain list | grep -q '^stable'; then
     rustup run stable cargo check --workspace --all-targets --all-features --locked

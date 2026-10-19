@@ -1,7 +1,15 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
-    "includes": ["src/**", "test/**", "!test/fixtures", "scripts/**", "static/**", "*.json"]
+    "includes": [
+      "src/**",
+      "test/**",
+      "!test/fixtures",
+      "e2e/**",
+      "scripts/**",
+      "static/**",
+      "*.json"
+    ]
   },
   "formatter": {
     "indentStyle": "space",
@@ -9,13 +17,30 @@
     "lineWidth": 100
   },
   "linter": {
-    "rules": { "preset": "recommended" }
+    "rules": {
+      "preset": "recommended",
+      "complexity": {
+        "useLiteralKeys": "off"
+      }
+    }
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "overrides": [
     {
       "includes": ["src/**"],
-      "linter": { "rules": { "correctness": { "noNodejsModules": "error" } } }
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noNodejsModules": "error"
+          }
+        }
+      }
     }
   ]
 }

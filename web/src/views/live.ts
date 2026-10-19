@@ -6,6 +6,7 @@ import { describeResult } from "../format.ts";
 import { fromLive, fromRecord, type GameData, sync } from "../game/data.ts";
 import { GameScreen } from "../game/screen.ts";
 import { DELAYS, LiveController, nearestDelay, paceLabel } from "../live/controller.ts";
+import { record } from "../live.ts";
 import { leaderboard, players } from "../results.ts";
 import { routeHash } from "../router.ts";
 import { table } from "../table.ts";
@@ -32,6 +33,15 @@ export function live(container: HTMLElement, ctx: Context): View {
   }
   const controller = new LiveController();
   const tournament = ctx.session.mode === "tournament";
+  // For the end-to-end tests, and the curious in the console: a game as
+  // this page assembled it from the stream (the latest, or game `n`).
+  const hook = {
+    record: (n?: number) => {
+      const game = n === undefined ? controller.game : controller.state.game(n);
+      return game ? record(game) : null;
+    },
+  };
+  Object.assign(globalThis, { dedaleLive: hook });
 
   const phase = h("span", { class: "phase" });
   const connection = h("span", { class: "connection muted" }, "connecting…");
@@ -105,6 +115,7 @@ export function live(container: HTMLElement, ctx: Context): View {
   let shown: Shown | null = null;
   let frame: number | null = null;
   let lastRefresh = 0;
+  let lastPhase = controller.state.session?.phase;
   let disposed = false;
 
   const show = (game: number, data: GameData, streamed: boolean): void => {
@@ -260,8 +271,11 @@ export function live(container: HTMLElement, ctx: Context): View {
     frame = null;
     renderStatus();
     const now = performance.now();
-    if (now - lastRefresh >= REFRESH_MS || !shown) {
+    // A new phase (finished, failed) shows everything at once.
+    const phaseNow = controller.state.session?.phase;
+    if (now - lastRefresh >= REFRESH_MS || !shown || phaseNow !== lastPhase) {
       lastRefresh = now;
+      lastPhase = phaseNow;
       refreshGame();
       renderTournament();
     } else {
@@ -291,6 +305,7 @@ export function live(container: HTMLElement, ctx: Context): View {
   return {
     dispose() {
       disposed = true;
+      Reflect.deleteProperty(globalThis, "dedaleLive");
       close();
       if (frame !== null) cancelAnimationFrame(frame);
       shown?.screen.dispose();
