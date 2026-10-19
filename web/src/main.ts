@@ -1,7 +1,4 @@
-import { apiUrl } from "./url.ts";
+import { boot } from "./app.ts";
 
-const token = new URLSearchParams(location.search).get("token") ?? "";
-const status = document.querySelector("#status");
-if (status) {
-  status.textContent = `API at ${apiUrl("/api/session", token)}`;
-}
+const root = document.querySelector<HTMLElement>("#app");
+if (root) void boot(root);

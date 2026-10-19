@@ -1,0 +1,117 @@
+{
+  "format": 1,
+  "dedale": "x",
+  "master_seed": "0000000000000001",
+  "mode": "duo",
+  "maze": {
+    "generated": {
+      "width": 5,
+      "height": 5,
+      "loops": 0,
+      "points": 17
+    }
+  },
+  "startup_ms": 500,
+  "move_ms": 100,
+  "max_turns": 12,
+  "bots": [
+    {
+      "name": "lap",
+      "path": "fake:lap"
+    },
+    {
+      "name": "flaky",
+      "path": "fake:flaky"
+    }
+  ],
+  "games": [
+    {
+      "index": 1,
+      "code": "ded2-5x5-l0-p17-0000000000000000",
+      "seating": "duo",
+      "bots": [
+        0,
+        1
+      ],
+      "result": {
+        "reason": "turn_limit",
+        "turns": 12,
+        "half_points": [
+          18,
+          4
+        ],
+        "winner": 0,
+        "cleared_turn": null
+      },
+      "replay": "games/001/replay.json"
+    },
+    {
+      "index": 2,
+      "code": "ded2-5x5-l0-p17-0000000000000000",
+      "seating": "duo_swapped",
+      "bots": [
+        0,
+        1
+      ],
+      "result": {
+        "reason": "turn_limit",
+        "turns": 12,
+        "half_points": [
+          18,
+          4
+        ],
+        "winner": 0,
+        "cleared_turn": null
+      },
+      "replay": "games/002/replay.json"
+    }
+  ],
+  "leaderboard": [
+    {
+      "rank": 1,
+      "bot": 0,
+      "name": "lap",
+      "games": 2,
+      "match_points": 4,
+      "wins": 2,
+      "draws": 0,
+      "losses": 0,
+      "cleared": 0,
+      "turns_to_clear": 0,
+      "half_points": 36,
+      "failures": 0,
+      "latency_us": {
+        "count": 24,
+        "min": 0,
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      }
+    },
+    {
+      "rank": 2,
+      "bot": 1,
+      "name": "flaky",
+      "games": 2,
+      "match_points": 0,
+      "wins": 0,
+      "draws": 0,
+      "losses": 2,
+      "cleared": 0,
+      "turns_to_clear": 0,
+      "half_points": 8,
+      "failures": 16,
+      "latency_us": {
+        "count": 24,
+        "min": 0,
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,875 @@
+[
+  {
+    "data": {
+      "games": [],
+      "pace": {
+        "delay_ms": 0,
+        "paused": false
+      },
+      "session": {
+        "bots": [
+          "lap",
+          "flaky"
+        ],
+        "error": null,
+        "file": null,
+        "games": 1,
+        "mode": "run",
+        "phase": "waiting",
+        "title": "golden"
+      },
+      "standings": null
+    },
+    "name": "snapshot"
+  },
+  {
+    "data": {},
+    "name": "waiting"
+  },
+  {
+    "data": {
+      "code": "ded2-5x5-l0-p17-0000000000000000",
+      "config": {
+        "max_turns": 12,
+        "move_ms": 100,
+        "seating": "duo",
+        "startup_ms": 500
+      },
+      "game": 1,
+      "maze": {
+        "cells": "_.....###.......###....._",
+        "height": 5,
+        "width": 5
+      },
+      "players": [
+        {
+          "name": "lap",
+          "path": "fake:lap",
+          "start": [
+            0,
+            0
+          ]
+        },
+        {
+          "name": "flaky",
+          "path": "fake:flaky",
+          "start": [
+            4,
+            4
+          ]
+        }
+      ]
+    },
+    "name": "game_start"
+  },
+  {
+    "data": {
+      "game": 1,
+      "player": 0,
+      "startup": {
+        "error": null,
+        "init_us": 1,
+        "log": [],
+        "marks": [],
+        "outcome": "ok",
+        "startup_us": 0
+      }
+    },
+    "name": "startup"
+  },
+  {
+    "data": {
+      "game": 1,
+      "player": 1,
+      "startup": {
+        "error": null,
+        "init_us": 1,
+        "log": [],
+        "marks": [],
+        "outcome": "ok",
+        "startup_us": 0
+      }
+    },
+    "name": "startup"
+  },
+  {
+    "data": {
+      "game": 1,
+      "turn": {
+        "collected": [
+          [
+            1,
+            0
+          ],
+          [
+            4,
+            3
+          ]
+        ],
+        "players": [
+          {
+            "applied": "right",
+            "error": null,
+            "gained": 2,
+            "half_points": 2,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [
+              "on my way"
+            ],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              1,
+              0
+            ],
+            "requested": "right",
+            "think_us": 1
+          },
+          {
+            "applied": "up",
+            "error": null,
+            "gained": 2,
+            "half_points": 2,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              4,
+              3
+            ],
+            "requested": "up",
+            "think_us": 1
+          }
+        ],
+        "turn": 1
+      }
+    },
+    "name": "turn"
+  },
+  {
+    "data": {
+      "game": 1,
+      "turn": {
+        "collected": [
+          [
+            2,
+            0
+          ]
+        ],
+        "players": [
+          {
+            "applied": "right",
+            "error": null,
+            "gained": 2,
+            "half_points": 4,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [
+              "on my way"
+            ],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              2,
+              0
+            ],
+            "requested": "right",
+            "think_us": 1
+          },
+          {
+            "applied": "stay",
+            "error": null,
+            "gained": 0,
+            "half_points": 2,
+            "invalid": "unknown move \"north\"; expected up, down, left, right or stay",
+            "latency_us": 0,
+            "log": [],
+            "marks": [],
+            "outcome": "invalid",
+            "pos": [
+              4,
+              3
+            ],
+            "requested": null,
+            "think_us": 1
+          }
+        ],
+        "turn": 2
+      }
+    },
+    "name": "turn"
+  },
+  {
+    "data": {
+      "game": 1,
+      "turn": {
+        "collected": [
+          [
+            3,
+            0
+          ]
+        ],
+        "players": [
+          {
+            "applied": "right",
+            "error": null,
+            "gained": 2,
+            "half_points": 6,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [
+              "on my way"
+            ],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              3,
+              0
+            ],
+            "requested": "right",
+            "think_us": 1
+          },
+          {
+            "applied": "stay",
+            "error": {
+              "message": "scripted move error",
+              "traceback": "Traceback: scripted"
+            },
+            "gained": 0,
+            "half_points": 2,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [],
+            "marks": [],
+            "outcome": "error",
+            "pos": [
+              4,
+              3
+            ],
+            "requested": null,
+            "think_us": 1
+          }
+        ],
+        "turn": 3
+      }
+    },
+    "name": "turn"
+  },
+  {
+    "data": {
+      "game": 1,
+      "turn": {
+        "collected": [
+          [
+            4,
+            0
+          ]
+        ],
+        "players": [
+          {
+            "applied": "right",
+            "error": null,
+            "gained": 2,
+            "half_points": 8,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [
+              "on my way"
+            ],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              4,
+              0
+            ],
+            "requested": "right",
+            "think_us": 1
+          },
+          {
+            "applied": "stay",
+            "error": null,
+            "gained": 0,
+            "half_points": 2,
+            "invalid": "unknown move \"north\"; expected up, down, left, right or stay",
+            "latency_us": 0,
+            "log": [],
+            "marks": [],
+            "outcome": "invalid",
+            "pos": [
+              4,
+              3
+            ],
+            "requested": null,
+            "think_us": 1
+          }
+        ],
+        "turn": 4
+      }
+    },
+    "name": "turn"
+  },
+  {
+    "data": {
+      "game": 1,
+      "turn": {
+        "collected": [
+          [
+            4,
+            1
+          ],
+          [
+            4,
+            2
+          ]
+        ],
+        "players": [
+          {
+            "applied": "down",
+            "error": null,
+            "gained": 2,
+            "half_points": 10,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [
+              "on my way"
+            ],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              4,
+              1
+            ],
+            "requested": "down",
+            "think_us": 1
+          },
+          {
+            "applied": "up",
+            "error": null,
+            "gained": 2,
+            "half_points": 4,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              4,
+              2
+            ],
+            "requested": "up",
+            "think_us": 1
+          }
+        ],
+        "turn": 5
+      }
+    },
+    "name": "turn"
+  },
+  {
+    "data": {
+      "game": 1,
+      "turn": {
+        "collected": [],
+        "players": [
+          {
+            "applied": "down",
+            "error": null,
+            "gained": 0,
+            "half_points": 10,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [
+              "on my way"
+            ],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              4,
+              2
+            ],
+            "requested": "down",
+            "think_us": 1
+          },
+          {
+            "applied": "stay",
+            "error": null,
+            "gained": 0,
+            "half_points": 4,
+            "invalid": "unknown move \"north\"; expected up, down, left, right or stay",
+            "latency_us": 0,
+            "log": [],
+            "marks": [],
+            "outcome": "invalid",
+            "pos": [
+              4,
+              2
+            ],
+            "requested": null,
+            "think_us": 1
+          }
+        ],
+        "turn": 6
+      }
+    },
+    "name": "turn"
+  },
+  {
+    "data": {
+      "game": 1,
+      "turn": {
+        "collected": [],
+        "players": [
+          {
+            "applied": "down",
+            "error": null,
+            "gained": 0,
+            "half_points": 10,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [
+              "on my way"
+            ],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              4,
+              3
+            ],
+            "requested": "down",
+            "think_us": 1
+          },
+          {
+            "applied": "up",
+            "error": null,
+            "gained": 0,
+            "half_points": 4,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              4,
+              1
+            ],
+            "requested": "up",
+            "think_us": 1
+          }
+        ],
+        "turn": 7
+      }
+    },
+    "name": "turn"
+  },
+  {
+    "data": {
+      "game": 1,
+      "turn": {
+        "collected": [],
+        "players": [
+          {
+            "applied": "down",
+            "error": null,
+            "gained": 0,
+            "half_points": 10,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [
+              "on my way"
+            ],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              4,
+              4
+            ],
+            "requested": "down",
+            "think_us": 1
+          },
+          {
+            "applied": "stay",
+            "error": null,
+            "gained": 0,
+            "half_points": 4,
+            "invalid": "unknown move \"north\"; expected up, down, left, right or stay",
+            "latency_us": 0,
+            "log": [],
+            "marks": [],
+            "outcome": "invalid",
+            "pos": [
+              4,
+              1
+            ],
+            "requested": null,
+            "think_us": 1
+          }
+        ],
+        "turn": 8
+      }
+    },
+    "name": "turn"
+  },
+  {
+    "data": {
+      "game": 1,
+      "turn": {
+        "collected": [
+          [
+            3,
+            4
+          ]
+        ],
+        "players": [
+          {
+            "applied": "left",
+            "error": null,
+            "gained": 2,
+            "half_points": 12,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [
+              "on my way"
+            ],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              3,
+              4
+            ],
+            "requested": "left",
+            "think_us": 1
+          },
+          {
+            "applied": "up",
+            "error": null,
+            "gained": 0,
+            "half_points": 4,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              4,
+              0
+            ],
+            "requested": "up",
+            "think_us": 1
+          }
+        ],
+        "turn": 9
+      }
+    },
+    "name": "turn"
+  },
+  {
+    "data": {
+      "game": 1,
+      "turn": {
+        "collected": [
+          [
+            2,
+            4
+          ]
+        ],
+        "players": [
+          {
+            "applied": "left",
+            "error": null,
+            "gained": 2,
+            "half_points": 14,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [
+              "on my way"
+            ],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              2,
+              4
+            ],
+            "requested": "left",
+            "think_us": 1
+          },
+          {
+            "applied": "stay",
+            "error": null,
+            "gained": 0,
+            "half_points": 4,
+            "invalid": "unknown move \"north\"; expected up, down, left, right or stay",
+            "latency_us": 0,
+            "log": [],
+            "marks": [],
+            "outcome": "invalid",
+            "pos": [
+              4,
+              0
+            ],
+            "requested": null,
+            "think_us": 1
+          }
+        ],
+        "turn": 10
+      }
+    },
+    "name": "turn"
+  },
+  {
+    "data": {
+      "game": 1,
+      "turn": {
+        "collected": [
+          [
+            1,
+            4
+          ]
+        ],
+        "players": [
+          {
+            "applied": "left",
+            "error": null,
+            "gained": 2,
+            "half_points": 16,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [
+              "on my way"
+            ],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              1,
+              4
+            ],
+            "requested": "left",
+            "think_us": 1
+          },
+          {
+            "applied": "stay",
+            "error": null,
+            "gained": 0,
+            "half_points": 4,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [],
+            "marks": [],
+            "outcome": "illegal",
+            "pos": [
+              4,
+              0
+            ],
+            "requested": "up",
+            "think_us": 1
+          }
+        ],
+        "turn": 11
+      }
+    },
+    "name": "turn"
+  },
+  {
+    "data": {
+      "game": 1,
+      "turn": {
+        "collected": [
+          [
+            0,
+            4
+          ]
+        ],
+        "players": [
+          {
+            "applied": "left",
+            "error": null,
+            "gained": 2,
+            "half_points": 18,
+            "invalid": null,
+            "latency_us": 0,
+            "log": [
+              "on my way"
+            ],
+            "marks": [],
+            "outcome": "ok",
+            "pos": [
+              0,
+              4
+            ],
+            "requested": "left",
+            "think_us": 1
+          },
+          {
+            "applied": "stay",
+            "error": null,
+            "gained": 0,
+            "half_points": 4,
+            "invalid": "unknown move \"north\"; expected up, down, left, right or stay",
+            "latency_us": 0,
+            "log": [],
+            "marks": [],
+            "outcome": "invalid",
+            "pos": [
+              4,
+              0
+            ],
+            "requested": null,
+            "think_us": 1
+          }
+        ],
+        "turn": 12
+      }
+    },
+    "name": "turn"
+  },
+  {
+    "data": {
+      "dedale": "x",
+      "events": [],
+      "format": 1,
+      "game": 1,
+      "players": [
+        {
+          "exit": {
+            "code": 0,
+            "killed": false,
+            "signal": null,
+            "stderr_tail": ""
+          },
+          "name": "lap",
+          "path": "fake:lap",
+          "start": [
+            0,
+            0
+          ],
+          "startup": {
+            "error": null,
+            "init_us": 1,
+            "log": [],
+            "marks": [],
+            "outcome": "ok",
+            "startup_us": 0
+          }
+        },
+        {
+          "exit": {
+            "code": 0,
+            "killed": false,
+            "signal": null,
+            "stderr_tail": ""
+          },
+          "name": "flaky",
+          "path": "fake:flaky",
+          "start": [
+            4,
+            4
+          ],
+          "startup": {
+            "error": null,
+            "init_us": 1,
+            "log": [],
+            "marks": [],
+            "outcome": "ok",
+            "startup_us": 0
+          }
+        }
+      ],
+      "replay": "replay.json",
+      "result": {
+        "cleared_turn": null,
+        "half_points": [
+          18,
+          4
+        ],
+        "reason": "turn_limit",
+        "turns": 12,
+        "winner": 0
+      },
+      "stats": [
+        {
+          "half_points": 18,
+          "init_us": 1,
+          "late": 0,
+          "latency_us": {
+            "count": 12,
+            "max": 0,
+            "mean": 0,
+            "min": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0
+          },
+          "outcomes": {
+            "crashed": 0,
+            "error": 0,
+            "illegal": 0,
+            "invalid": 0,
+            "not_ready": 0,
+            "ok": 12,
+            "timeout": 0
+          },
+          "startup_us": 0,
+          "stays": 0,
+          "steps": 12,
+          "think_us": {
+            "count": 12,
+            "max": 1,
+            "mean": 1,
+            "min": 1,
+            "p50": 1,
+            "p95": 1,
+            "p99": 1
+          },
+          "turns": 12,
+          "turns_to_clear": null
+        },
+        {
+          "half_points": 4,
+          "init_us": 1,
+          "late": 0,
+          "latency_us": {
+            "count": 12,
+            "max": 0,
+            "mean": 0,
+            "min": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0
+          },
+          "outcomes": {
+            "crashed": 0,
+            "error": 1,
+            "illegal": 1,
+            "invalid": 6,
+            "not_ready": 0,
+            "ok": 4,
+            "timeout": 0
+          },
+          "startup_us": 0,
+          "stays": 0,
+          "steps": 4,
+          "think_us": {
+            "count": 12,
+            "max": 1,
+            "mean": 1,
+            "min": 1,
+            "p50": 1,
+            "p95": 1,
+            "p99": 1
+          },
+          "turns": 12,
+          "turns_to_clear": null
+        }
+      ]
+    },
+    "name": "game_end"
+  },
+  {
+    "data": {
+      "file": "replay.json"
+    },
+    "name": "finished"
+  }
+]

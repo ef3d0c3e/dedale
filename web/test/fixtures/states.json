@@ -1,0 +1,288 @@
+[
+  {
+    "turn": 0,
+    "cells": "_.....###.......###....._",
+    "players": [
+      {
+        "pos": [
+          0,
+          0
+        ],
+        "half_points": 0,
+        "last_move": null
+      },
+      {
+        "pos": [
+          4,
+          4
+        ],
+        "half_points": 0,
+        "last_move": null
+      }
+    ]
+  },
+  {
+    "turn": 1,
+    "cells": "__....###.......###_...._",
+    "players": [
+      {
+        "pos": [
+          1,
+          0
+        ],
+        "half_points": 2,
+        "last_move": "right"
+      },
+      {
+        "pos": [
+          4,
+          3
+        ],
+        "half_points": 2,
+        "last_move": "up"
+      }
+    ]
+  },
+  {
+    "turn": 2,
+    "cells": "___...###.......###_...._",
+    "players": [
+      {
+        "pos": [
+          2,
+          0
+        ],
+        "half_points": 4,
+        "last_move": "right"
+      },
+      {
+        "pos": [
+          4,
+          3
+        ],
+        "half_points": 2,
+        "last_move": "stay"
+      }
+    ]
+  },
+  {
+    "turn": 3,
+    "cells": "____..###.......###_...._",
+    "players": [
+      {
+        "pos": [
+          3,
+          0
+        ],
+        "half_points": 6,
+        "last_move": "right"
+      },
+      {
+        "pos": [
+          4,
+          3
+        ],
+        "half_points": 2,
+        "last_move": "stay"
+      }
+    ]
+  },
+  {
+    "turn": 4,
+    "cells": "_____.###.......###_...._",
+    "players": [
+      {
+        "pos": [
+          4,
+          0
+        ],
+        "half_points": 8,
+        "last_move": "right"
+      },
+      {
+        "pos": [
+          4,
+          3
+        ],
+        "half_points": 2,
+        "last_move": "stay"
+      }
+    ]
+  },
+  {
+    "turn": 5,
+    "cells": "_____.###_...._.###_...._",
+    "players": [
+      {
+        "pos": [
+          4,
+          1
+        ],
+        "half_points": 10,
+        "last_move": "down"
+      },
+      {
+        "pos": [
+          4,
+          2
+        ],
+        "half_points": 4,
+        "last_move": "up"
+      }
+    ]
+  },
+  {
+    "turn": 6,
+    "cells": "_____.###_...._.###_...._",
+    "players": [
+      {
+        "pos": [
+          4,
+          2
+        ],
+        "half_points": 10,
+        "last_move": "down"
+      },
+      {
+        "pos": [
+          4,
+          2
+        ],
+        "half_points": 4,
+        "last_move": "stay"
+      }
+    ]
+  },
+  {
+    "turn": 7,
+    "cells": "_____.###_...._.###_...._",
+    "players": [
+      {
+        "pos": [
+          4,
+          3
+        ],
+        "half_points": 10,
+        "last_move": "down"
+      },
+      {
+        "pos": [
+          4,
+          1
+        ],
+        "half_points": 4,
+        "last_move": "up"
+      }
+    ]
+  },
+  {
+    "turn": 8,
+    "cells": "_____.###_...._.###_...._",
+    "players": [
+      {
+        "pos": [
+          4,
+          4
+        ],
+        "half_points": 10,
+        "last_move": "down"
+      },
+      {
+        "pos": [
+          4,
+          1
+        ],
+        "half_points": 4,
+        "last_move": "stay"
+      }
+    ]
+  },
+  {
+    "turn": 9,
+    "cells": "_____.###_...._.###_...__",
+    "players": [
+      {
+        "pos": [
+          3,
+          4
+        ],
+        "half_points": 12,
+        "last_move": "left"
+      },
+      {
+        "pos": [
+          4,
+          0
+        ],
+        "half_points": 4,
+        "last_move": "up"
+      }
+    ]
+  },
+  {
+    "turn": 10,
+    "cells": "_____.###_...._.###_..___",
+    "players": [
+      {
+        "pos": [
+          2,
+          4
+        ],
+        "half_points": 14,
+        "last_move": "left"
+      },
+      {
+        "pos": [
+          4,
+          0
+        ],
+        "half_points": 4,
+        "last_move": "stay"
+      }
+    ]
+  },
+  {
+    "turn": 11,
+    "cells": "_____.###_...._.###_.____",
+    "players": [
+      {
+        "pos": [
+          1,
+          4
+        ],
+        "half_points": 16,
+        "last_move": "left"
+      },
+      {
+        "pos": [
+          4,
+          0
+        ],
+        "half_points": 4,
+        "last_move": "stay"
+      }
+    ]
+  },
+  {
+    "turn": 12,
+    "cells": "_____.###_...._.###______",
+    "players": [
+      {
+        "pos": [
+          0,
+          4
+        ],
+        "half_points": 18,
+        "last_move": "left"
+      },
+      {
+        "pos": [
+          4,
+          0
+        ],
+        "half_points": 4,
+        "last_move": "stay"
+      }
+    ]
+  }
+]
