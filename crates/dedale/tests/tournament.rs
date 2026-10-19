@@ -3,16 +3,19 @@
 mod common;
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::time::Duration;
 
 use common::{example_bot, fake_bot};
-use dedale::referee::{Entrant, MatchConfig};
+use dedale::referee::{Entrant, GameStart, MatchConfig, Observer};
 use dedale::replay;
-use dedale::tournament::{Mode, TournamentReport, play, schedule, standings};
+use dedale::tournament::{
+    GamePlan, Mode, TournamentObserver, TournamentReport, game_dir, play, schedule, standings,
+};
 use dedale_core::game::Seating;
 use dedale_core::maze::Maze;
+use dedale_core::record::GameRecord;
 use dedale_core::verify::verify;
 
 const RING: &str = "_....\n.###.\n.###.\n.###.\n...._\n";
@@ -37,13 +40,39 @@ fn fake_entrant(bot: usize, dir: &Path) -> Entrant {
     }
 }
 
+/// Counts the games it sees start, and which are done.
+#[derive(Default)]
+struct Games {
+    started: usize,
+    done: Vec<usize>,
+    dir: PathBuf,
+}
+
+impl Observer for Games {
+    fn game_start(&mut self, _start: &GameStart) {
+        self.started += 1;
+    }
+}
+
+impl TournamentObserver for Games {
+    fn game_done(&mut self, plan: &GamePlan, record: &GameRecord) {
+        let names = ["lap".to_owned(), "sitter".to_owned()];
+        let path = self.dir.join(game_dir(plan, &names)).join("replay.json");
+        assert_eq!(&replay::read(&path).unwrap(), record);
+        self.done.push(plan.index);
+    }
+}
+
 #[test]
 fn a_duo_tournament_with_fake_bots() {
     let dir = tempfile::tempdir().unwrap();
     let names = vec!["lap".to_owned(), "sitter".to_owned()];
     let plans = schedule(Mode::Duo, 2, 2, None, 1);
     let ring = Maze::parse(RING).unwrap();
-    let mut seen = 0;
+    let mut observer = Games {
+        dir: dir.path().to_owned(),
+        ..Games::default()
+    };
     let games = play(
         &plans,
         &names,
@@ -51,10 +80,13 @@ fn a_duo_tournament_with_fake_bots() {
         fake_entrant,
         &config(),
         dir.path(),
-        |_, _| seen += 1,
+        &mut observer,
     )
     .unwrap();
-    assert_eq!((games.len(), seen), (4, 4));
+    assert_eq!(games.len(), 4);
+    assert_eq!(observer.started, 4);
+    // Each game is done once its replay is written.
+    assert_eq!(observer.done, [1, 2, 3, 4]);
     for (plan, record) in &games {
         assert_eq!(record.config.seating, plan.seating);
         assert_eq!(verify(record), Ok(()));
@@ -85,7 +117,7 @@ fn a_solo_tournament_with_fake_bots() {
         fake_entrant,
         &config(),
         dir.path(),
-        |_, _| {},
+        &mut (),
     )
     .unwrap();
     let table = standings(Mode::Solo, &names, &games);

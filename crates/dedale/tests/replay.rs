@@ -41,7 +41,7 @@ fn game() -> GameRecord {
     config.startup = Duration::from_millis(500);
     config.max_turns = Some(12);
     config.end_grace = Duration::from_millis(500);
-    run_match(maze, Some(code), entrants, &config, |_, _| {}).unwrap()
+    run_match(maze, Some(code), entrants, &config, &mut ()).unwrap()
 }
 
 /// Replaces what varies between runs (timings, version) with fixed values.

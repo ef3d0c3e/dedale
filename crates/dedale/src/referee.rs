@@ -9,6 +9,7 @@ use std::io;
 use std::os::unix::process::ExitStatusExt;
 use std::path::PathBuf;
 use std::process::Command;
+use std::thread;
 use std::time::{Duration, Instant};
 
 use dedale_core::code::MazeCode;
@@ -26,6 +27,7 @@ use dedale_core::record::{
     REPLAY_FORMAT, StartupOutcome, StartupRecord, TurnRecord,
 };
 use dedale_core::stats::compute_stats;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::interrupt;
@@ -97,8 +99,53 @@ pub enum MatchError {
     Interrupted,
 }
 
-/// Plays one game and returns its full record. `observe` is called after
-/// every turn with the new state and the turn's record.
+/// A game about to be played, as [`Observer::game_start`] sees it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GameStart {
+    pub code: Option<MazeCode>,
+    pub maze: Maze,
+    pub config: ConfigRecord,
+    pub players: Vec<PlayerStart>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlayerStart {
+    pub name: String,
+    pub path: String,
+    pub start: Pos,
+}
+
+/// Watches a game as it is played and sets its pace. Every
+/// method does nothing by default; `()` is the observer that sees nothing.
+pub trait Observer {
+    /// Before the bots are started.
+    fn game_start(&mut self, _start: &GameStart) {}
+
+    /// A bot's startup changed: it became ready (in time or late), its
+    /// `init()` failed, it crashed before being ready, or the startup budget
+    /// ran out before it was ready (a timeout, which becomes `late` if it
+    /// gets ready afterwards).
+    fn startup(&mut self, _player: usize, _startup: &StartupRecord) {}
+
+    /// After every turn, with the state it led to.
+    fn turn(&mut self, _snapshot: &Snapshot, _turn: &TurnRecord) {}
+
+    /// Once the game is over, with the record [`run_match`] returns.
+    fn game_end(&mut self, _record: &GameRecord) {}
+
+    /// Asked before each turn is sent: `None` plays it, `Some(wait)` holds
+    /// the game and asks again after `wait` (at most [`interrupt::POLL`], so
+    /// a stop request is still honoured). Holding happens only between
+    /// turns, before a bot's clock starts.
+    fn hold(&mut self, _turn: u32) -> Option<Duration> {
+        None
+    }
+}
+
+impl Observer for () {}
+
+/// Plays one game and returns its full record, telling `observer` what
+/// happens as it happens.
 ///
 /// # Errors
 ///
@@ -114,7 +161,7 @@ pub fn run_match(
     code: Option<MazeCode>,
     entrants: Vec<Entrant>,
     config: &MatchConfig,
-    mut observe: impl FnMut(&Snapshot, &TurnRecord),
+    observer: &mut dyn Observer,
 ) -> Result<GameRecord, MatchError> {
     let expected = config.seating.players();
     if entrants.len() != expected {
@@ -124,11 +171,21 @@ pub fn run_match(
             got: entrants.len(),
         });
     }
-    let max_turns = config.max_turns.unwrap_or_else(|| default_max_turns(&maze));
-    let starts = config.seating.starts(&maze);
+    let start = game_start(maze, code, &entrants, config);
+    observer.game_start(&start);
+    let GameStart {
+        maze,
+        config: config_record,
+        players: seated,
+        ..
+    } = start;
+    let max_turns = config_record.max_turns;
+    let starts: Vec<Pos> = seated.iter().map(|p| p.start).collect();
+
     let mut referee = Referee {
         seats: Vec::new(),
         events: Vec::new(),
+        observer,
     };
     for entrant in entrants {
         referee.seats.push(Seat::spawn(entrant)?);
@@ -158,30 +215,11 @@ pub fn run_match(
     referee.await_startup(init_sent + config.startup)?;
 
     let mut game = Game::new(maze.clone(), config.seating, max_turns);
-    let mut turns = Vec::new();
-    let mut collected = Vec::new();
+    let mut turns: Vec<TurnRecord> = Vec::new();
     while !game.is_over() {
-        let turn = game.snapshot().turn + 1;
-        referee.drain(turn);
-        let msg = ToBot::Turn(Turn {
-            turn,
-            players: game.snapshot().players.clone(),
-            collected: std::mem::take(&mut collected),
-        });
-        let sent = Instant::now();
-        for seat in &mut referee.seats {
-            seat.send(&msg);
-        }
-        let deadline = sent + config.move_timeout;
-        let replies = (0..referee.seats.len())
-            .map(|player| referee.await_reply(player, turn, sent, deadline))
-            .collect::<Result<Vec<Reply>, MatchError>>()?;
-        let inputs: Vec<Input> = replies.iter().map(|r| r.input).collect();
-        let report = game.step(&inputs);
-        collected.clone_from(&report.collected);
-        let record = turn_record(report, replies);
-        observe(game.snapshot(), &record);
-        turns.push(record);
+        let collected = turns.last().map(|t| t.collected.clone());
+        let turn = referee.play_turn(&mut game, collected.unwrap_or_default(), config)?;
+        turns.push(turn);
     }
 
     let result = game.result().expect("the game is over");
@@ -197,12 +235,7 @@ pub fn run_match(
         dedale: env!("CARGO_PKG_VERSION").to_owned(),
         code,
         maze,
-        config: ConfigRecord {
-            startup_ms: millis(config.startup),
-            move_ms: millis(config.move_timeout),
-            max_turns,
-            seating: config.seating,
-        },
+        config: config_record,
         players,
         turns,
         events: referee.events,
@@ -210,12 +243,44 @@ pub fn run_match(
         stats: Vec::new(),
     };
     record.stats = compute_stats(&record);
+    referee.observer.game_end(&record);
     Ok(record)
 }
 
-struct Referee {
+/// What the observer is told before the bots start.
+fn game_start(
+    maze: Maze,
+    code: Option<MazeCode>,
+    entrants: &[Entrant],
+    config: &MatchConfig,
+) -> GameStart {
+    let max_turns = config.max_turns.unwrap_or_else(|| default_max_turns(&maze));
+    let players = entrants
+        .iter()
+        .zip(config.seating.starts(&maze))
+        .map(|(entrant, start)| PlayerStart {
+            name: entrant.name.clone(),
+            path: entrant.path.clone(),
+            start,
+        })
+        .collect();
+    GameStart {
+        code,
+        maze,
+        config: ConfigRecord {
+            startup_ms: millis(config.startup),
+            move_ms: millis(config.move_timeout),
+            max_turns,
+            seating: config.seating,
+        },
+        players,
+    }
+}
+
+struct Referee<'o> {
     seats: Vec<Seat>,
     events: Vec<EventRecord>,
+    observer: &'o mut dyn Observer,
 }
 
 struct Seat {
@@ -400,7 +465,7 @@ impl Seat {
     }
 }
 
-impl Referee {
+impl Referee<'_> {
     fn event(&mut self, turn: u32, player: usize, kind: EventKind) {
         let seat = &mut self.seats[player];
         seat.events += 1;
@@ -419,6 +484,30 @@ impl Referee {
     fn ignored(&mut self, turn: u32, player: usize, reason: impl Into<String>) {
         let reason = reason.into();
         self.event(turn, player, EventKind::Ignored { reason });
+    }
+
+    fn report_startup(&mut self, player: usize) {
+        self.observer.startup(player, &self.seats[player].startup);
+    }
+
+    /// The bot's stdout closed: it exited or crashed.
+    fn crashed(&mut self, player: usize) {
+        let starting = !self.seats[player].ready;
+        self.seats[player].crashed();
+        if starting {
+            self.report_startup(player);
+        }
+    }
+
+    /// Holds the game while the observer asks to, honouring a stop request.
+    fn hold(&mut self, turn: u32) -> Result<(), MatchError> {
+        while let Some(wait) = self.observer.hold(turn) {
+            if interrupt::requested() {
+                return Err(MatchError::Interrupted);
+            }
+            thread::sleep(wait.min(interrupt::POLL));
+        }
+        Ok(())
     }
 
     /// Waits for every bot's `hello`, all against one deadline. A bot that
@@ -442,6 +531,7 @@ impl Referee {
                 },
             };
             self.seats[player].fail_startup(failure);
+            self.report_startup(player);
         }
         Ok(())
     }
@@ -455,6 +545,11 @@ impl Referee {
                     break;
                 };
                 self.background(player, 0, output);
+            }
+        }
+        for player in 0..self.seats.len() {
+            if self.seats[player].alive() && !self.seats[player].ready {
+                self.report_startup(player);
             }
         }
         Ok(())
@@ -481,7 +576,7 @@ impl Referee {
     /// not been sent yet, or the bot is still starting).
     fn background(&mut self, player: usize, turn: u32, output: Output) {
         match output {
-            Output::Closed { .. } => self.seats[player].crashed(),
+            Output::Closed { .. } => self.crashed(player),
             Output::Oversized { .. } => {
                 self.ignored(turn, player, format!("line longer than {MAX_LINE} bytes"));
             }
@@ -495,8 +590,14 @@ impl Referee {
     fn message(&mut self, player: usize, turn: u32, msg: FromBot, at: Instant) {
         let seat = &mut self.seats[player];
         match msg {
-            FromBot::Ready(ready) if !seat.ready => seat.on_ready(ready, at),
-            FromBot::Error(reply) if !seat.ready => seat.on_init_error(reply, at),
+            FromBot::Ready(ready) if !seat.ready => {
+                seat.on_ready(ready, at);
+                self.report_startup(player);
+            }
+            FromBot::Error(reply) if !seat.ready => {
+                seat.on_init_error(reply, at);
+                self.report_startup(player);
+            }
             FromBot::Move(reply) if reply.turn < turn => {
                 let for_turn = reply.turn;
                 self.event(turn, player, EventKind::Late { for_turn });
@@ -506,6 +607,38 @@ impl Referee {
                 self.ignored(turn, player, reason);
             }
         }
+    }
+
+    /// Plays the next turn: holds it while the observer asks to, sends it
+    /// (with the cells `collected` on the previous one), and resolves it once
+    /// every bot answered or the move timeout passed.
+    fn play_turn(
+        &mut self,
+        game: &mut Game,
+        collected: Vec<Pos>,
+        config: &MatchConfig,
+    ) -> Result<TurnRecord, MatchError> {
+        let turn = game.snapshot().turn + 1;
+        self.hold(turn)?;
+        self.drain(turn);
+        let msg = ToBot::Turn(Turn {
+            turn,
+            players: game.snapshot().players.clone(),
+            collected,
+        });
+        let sent = Instant::now();
+        for seat in &mut self.seats {
+            seat.send(&msg);
+        }
+        let deadline = sent + config.move_timeout;
+        let replies = (0..self.seats.len())
+            .map(|player| self.await_reply(player, turn, sent, deadline))
+            .collect::<Result<Vec<Reply>, MatchError>>()?;
+        let inputs: Vec<Input> = replies.iter().map(|r| r.input).collect();
+        let report = game.step(&inputs);
+        let record = turn_record(report, replies);
+        self.observer.turn(game.snapshot(), &record);
+        Ok(record)
     }
 
     /// Waits for `player`'s reply to `turn` until `deadline`.

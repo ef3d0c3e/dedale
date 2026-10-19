@@ -4,17 +4,16 @@ use std::ffi::OsString;
 use std::fs;
 use std::io::{IsTerminal, Write};
 use std::path::PathBuf;
-use std::thread::sleep;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use clap::{Args, ValueEnum};
-use dedale_core::game::{Game, Seating, Snapshot, default_max_turns};
+use dedale_core::game::{Game, Seating, Snapshot};
 use dedale_core::record::TurnRecord;
 
 use super::{CliResult, ColorChoice, MazeArgs, summary, timestamp};
 use crate::bot::BotSpec;
 use crate::python::PythonRuntime;
-use crate::referee::{Entrant, MatchConfig, run_match};
+use crate::referee::{Entrant, GameStart, MatchConfig, Observer, run_match};
 use crate::render::{Frame, Style, render};
 use crate::replay;
 
@@ -151,24 +150,21 @@ pub(crate) fn run(args: &RunArgs) -> CliResult {
 
     let config = args.timing.config(seating);
     let style = args.view.style();
-    let max_turns = config.max_turns.unwrap_or_else(|| default_max_turns(&maze));
-    let mut watcher = args.view.watch.then(|| Watcher {
+    let mut watcher = Watcher {
         names: names.clone(),
-        max_turns,
+        max_turns: 0,
         style,
         marks: args.view.marks.player(),
         clear: std::io::stdout().is_terminal(),
         delay: Duration::from_millis(args.view.delay),
-    });
-    if let Some(watcher) = &mut watcher {
-        let start = Game::new(maze.clone(), seating, max_turns);
-        watcher.show(start.snapshot(), None);
-    }
-    let record = run_match(maze, code, entrants, &config, |snapshot, turn| {
-        if let Some(watcher) = &mut watcher {
-            watcher.show(snapshot, Some(turn));
-        }
-    })?;
+        shown: Instant::now(),
+    };
+    let observer: &mut dyn Observer = if args.view.watch {
+        &mut watcher
+    } else {
+        &mut ()
+    };
+    let record = run_match(maze, code, entrants, &config, observer)?;
 
     let path = out.join("replay.json");
     replay::write(&path, &record).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
@@ -181,12 +177,33 @@ pub(crate) fn run(args: &RunArgs) -> CliResult {
 /// Shows each turn of a game as it is played.
 struct Watcher {
     names: Vec<String>,
+    /// Known once the game starts.
     max_turns: u32,
     style: Style,
     marks: Option<usize>,
     /// Redraw in place (on a terminal) rather than print frame after frame.
     clear: bool,
+    /// Held between a frame and the next turn.
     delay: Duration,
+    shown: Instant,
+}
+
+impl Observer for Watcher {
+    fn game_start(&mut self, start: &GameStart) {
+        self.max_turns = start.config.max_turns;
+        let game = Game::new(start.maze.clone(), start.config.seating, self.max_turns);
+        self.show(game.snapshot(), None);
+    }
+
+    fn turn(&mut self, snapshot: &Snapshot, turn: &TurnRecord) {
+        self.show(snapshot, Some(turn));
+    }
+
+    fn hold(&mut self, _turn: u32) -> Option<Duration> {
+        (self.shown + self.delay)
+            .checked_duration_since(Instant::now())
+            .filter(|wait| !wait.is_zero())
+    }
 }
 
 impl Watcher {
@@ -210,9 +227,7 @@ impl Watcher {
             writeln!(stdout, "{text}")
         };
         let _ = stdout.flush();
-        if !self.delay.is_zero() {
-            sleep(self.delay);
-        }
+        self.shown = Instant::now();
     }
 }
 

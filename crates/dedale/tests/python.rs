@@ -44,7 +44,7 @@ fn play_test_bot(name: &str) -> GameRecord {
     let runtime = PythonRuntime::extract().unwrap();
     let entrant = python_entrant(&runtime, &test_bot(name));
     let maze = Maze::parse(RING).unwrap();
-    run_match(maze, None, vec![entrant], &ring_config(), |_, _| {}).unwrap()
+    run_match(maze, None, vec![entrant], &ring_config(), &mut ()).unwrap()
 }
 
 fn outcomes(record: &GameRecord) -> Vec<Outcome> {
@@ -63,7 +63,7 @@ fn a_python_bot_clears_the_ring() {
     config.max_turns = Some(50);
 
     let maze = Maze::parse(RING).unwrap();
-    let record = run_match(maze, None, vec![entrant], &config, |_, _| {}).unwrap();
+    let record = run_match(maze, None, vec![entrant], &config, &mut ()).unwrap();
 
     let startup = &record.players[0].startup;
     assert_eq!(startup.outcome, StartupOutcome::Ok, "{startup:?}");
@@ -87,14 +87,7 @@ fn greedy_clears_a_full_size_maze() {
     let code: MazeCode = "ded2-31x31-l25-p65535-9f3a0c11d2e4b6a8".parse().unwrap();
     let entrant = python_entrant(&runtime, &example_bot("greedy_bot"));
     let config = MatchConfig::new(Seating::Solo);
-    let record = run_match(
-        generate(&code),
-        Some(code),
-        vec![entrant],
-        &config,
-        |_, _| {},
-    )
-    .unwrap();
+    let record = run_match(generate(&code), Some(code), vec![entrant], &config, &mut ()).unwrap();
     assert_eq!(
         record.result.reason,
         EndReason::Cleared,
@@ -120,7 +113,7 @@ fn greedy_beats_random() {
         python_entrant(&runtime, &example_bot("random_bot")),
     ];
     let config = MatchConfig::new(Seating::Duo);
-    let record = run_match(generate(&code), Some(code), entrants, &config, |_, _| {}).unwrap();
+    let record = run_match(generate(&code), Some(code), entrants, &config, &mut ()).unwrap();
     assert_eq!(record.result.reason, EndReason::Cleared);
     assert_eq!(record.result.winner, Some(0), "{:?}", record.result);
 }

@@ -6,11 +6,11 @@ mod common;
 use std::time::{Duration, Instant};
 
 use common::fake_bot;
-use dedale::referee::{Entrant, MatchConfig, MatchError, run_match};
-use dedale_core::game::{EndReason, Outcome, Seating};
+use dedale::referee::{Entrant, GameStart, MatchConfig, MatchError, Observer, run_match};
+use dedale_core::game::{EndReason, Outcome, Seating, Snapshot};
 use dedale_core::grid::{Move, Pos};
 use dedale_core::maze::Maze;
-use dedale_core::record::{EventKind, GameRecord, StartupOutcome};
+use dedale_core::record::{EventKind, GameRecord, StartupOutcome, StartupRecord, TurnRecord};
 
 /// A corridor ring around a block of walls, 14 points.
 const RING: &str = "\
@@ -53,7 +53,71 @@ fn solo(args: &[&str]) -> GameRecord {
 }
 
 fn solo_with(args: &[&str], config: &MatchConfig) -> GameRecord {
-    run_match(ring(), None, vec![entrant("bot", args)], config, |_, _| {}).unwrap()
+    run_match(ring(), None, vec![entrant("bot", args)], config, &mut ()).unwrap()
+}
+
+/// What an observer saw, in order.
+#[derive(Debug)]
+enum Seen {
+    Start(GameStart),
+    Startup(usize, StartupRecord),
+    Turn(Box<TurnRecord>, Instant),
+    End(Box<GameRecord>),
+}
+
+/// Records everything; optionally holds the game before one turn.
+#[derive(Default)]
+struct Recorder {
+    seen: Vec<Seen>,
+    /// Hold before this turn for this long.
+    pause: Option<(u32, Duration)>,
+    until: Option<Instant>,
+    /// Times `hold` asked the referee to wait.
+    holds: u32,
+}
+
+impl Recorder {
+    fn turns(&self) -> Vec<(&TurnRecord, Instant)> {
+        self.seen
+            .iter()
+            .filter_map(|s| match s {
+                Seen::Turn(turn, at) => Some((&**turn, *at)),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+impl Observer for Recorder {
+    fn game_start(&mut self, start: &GameStart) {
+        self.seen.push(Seen::Start(start.clone()));
+    }
+
+    fn startup(&mut self, player: usize, startup: &StartupRecord) {
+        self.seen.push(Seen::Startup(player, startup.clone()));
+    }
+
+    fn turn(&mut self, _snapshot: &Snapshot, turn: &TurnRecord) {
+        self.seen
+            .push(Seen::Turn(Box::new(turn.clone()), Instant::now()));
+    }
+
+    fn game_end(&mut self, record: &GameRecord) {
+        self.seen.push(Seen::End(Box::new(record.clone())));
+    }
+
+    fn hold(&mut self, turn: u32) -> Option<Duration> {
+        let (at, length) = self.pause?;
+        if turn != at {
+            return None;
+        }
+        let until = *self.until.get_or_insert_with(|| Instant::now() + length);
+        let wait = until
+            .checked_duration_since(Instant::now())
+            .filter(|wait| !wait.is_zero());
+        self.holds += u32::from(wait.is_some());
+        wait
+    }
 }
 
 fn outcomes(record: &GameRecord, player: usize) -> Vec<Outcome> {
@@ -95,7 +159,7 @@ fn duo_winner_and_swapped_seats() {
             entrant("sitter", &["--moves", "stay"]),
         ]
     };
-    let record = run_match(ring(), None, entrants(), &config(Seating::Duo), |_, _| {}).unwrap();
+    let record = run_match(ring(), None, entrants(), &config(Seating::Duo), &mut ()).unwrap();
     assert_eq!(record.result.reason, EndReason::Cleared);
     assert_eq!(record.result.winner, Some(0));
 
@@ -104,7 +168,7 @@ fn duo_winner_and_swapped_seats() {
         None,
         entrants(),
         &config(Seating::DuoSwapped),
-        |_, _| {},
+        &mut (),
     )
     .unwrap();
     assert_eq!(record.players[0].start, Pos::new(4, 4));
@@ -232,7 +296,7 @@ fn a_crash_leaves_the_opponent_playing() {
             ],
         ),
     ];
-    let record = run_match(ring(), None, entrants, &config(Seating::Duo), |_, _| {}).unwrap();
+    let record = run_match(ring(), None, entrants, &config(Seating::Duo), &mut ()).unwrap();
     assert_eq!(record.result.reason, EndReason::Cleared);
     assert_eq!(record.result.winner, Some(1));
     assert!(
@@ -274,16 +338,95 @@ fn a_slow_bot_never_delays_the_other_beyond_the_timeout() {
     ];
     let mut config = config(Seating::Duo);
     config.max_turns = Some(3);
-    let mut seen = Vec::new();
-    let record = run_match(ring(), None, entrants, &config, |_, _| {
-        seen.push(Instant::now());
-    })
-    .unwrap();
+    let mut recorder = Recorder::default();
+    let record = run_match(ring(), None, entrants, &config, &mut recorder).unwrap();
     assert_eq!(outcomes(&record, 1)[0], Outcome::Timeout);
-    for pair in seen.windows(2) {
-        let gap = pair[1] - pair[0];
+    for pair in recorder.turns().windows(2) {
+        let gap = pair[1].1 - pair[0].1;
         assert!(gap < Duration::from_millis(300), "{gap:?}");
     }
+}
+
+#[test]
+fn an_observer_sees_the_whole_game() {
+    let entrants = vec![
+        entrant("runner", &["--moves", LAP]),
+        entrant("slow", &["--init-sleep-ms", "800"]),
+    ];
+    let mut recorder = Recorder::default();
+    let record = run_match(ring(), None, entrants, &config(Seating::Duo), &mut recorder).unwrap();
+    let seen = &recorder.seen;
+
+    let Seen::Start(start) = &seen[0] else {
+        panic!("{:?}", seen[0]);
+    };
+    assert_eq!((&start.maze, start.code), (&record.maze, record.code));
+    assert_eq!(start.config, record.config);
+    for (player, recorded) in start.players.iter().zip(&record.players) {
+        let expected = (&recorded.name, &recorded.path, recorded.start);
+        assert_eq!((&player.name, &player.path, player.start), expected);
+    }
+    // The runner is ready in time; the slow bot's budget runs out before
+    // the first turn, and it gets ready during the game.
+    let startups: Vec<(usize, usize, StartupOutcome)> = seen
+        .iter()
+        .enumerate()
+        .filter_map(|(i, s)| match s {
+            Seen::Startup(player, startup) => Some((i, *player, startup.outcome)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        startups[..2],
+        [(1, 0, StartupOutcome::Ok), (2, 1, StartupOutcome::Timeout)]
+    );
+    assert_eq!(startups.len(), 3, "{startups:?}");
+    let (late_at, player, outcome) = startups[2];
+    assert_eq!((player, outcome), (1, StartupOutcome::Late));
+    assert!(matches!(seen[late_at - 1], Seen::Turn(..)), "{late_at}");
+    let Seen::Startup(_, last) = &seen[late_at] else {
+        unreachable!()
+    };
+    assert_eq!(last, &record.players[1].startup);
+
+    let turns: Vec<TurnRecord> = recorder
+        .turns()
+        .into_iter()
+        .map(|(t, _)| t.clone())
+        .collect();
+    assert_eq!(turns, record.turns);
+    let Some(Seen::End(end)) = seen.last() else {
+        panic!("{:?}", seen.last());
+    };
+    assert_eq!(**end, record);
+    assert_eq!(seen.len(), 1 + 3 + record.turns.len() + 1);
+}
+
+#[test]
+fn holding_pauses_between_turns_only() {
+    let mut recorder = Recorder {
+        pause: Some((3, Duration::from_millis(500))),
+        ..Recorder::default()
+    };
+    let config = config(Seating::Solo);
+    let record = run_match(
+        ring(),
+        None,
+        vec![entrant("bot", &["--moves", LAP])],
+        &config,
+        &mut recorder,
+    )
+    .unwrap();
+    // Asked again at least every 100 ms while holding.
+    assert!(recorder.holds >= 5, "{}", recorder.holds);
+    let turns = recorder.turns();
+    let gap = turns[2].1 - turns[1].1;
+    assert!(gap >= Duration::from_millis(500), "{gap:?}");
+    // Turn 3 was sent after the pause: the bot's clock never ran during it.
+    assert!(outcomes(&record, 0).iter().all(|&o| o == Outcome::Ok));
+    let latency = record.turns[2].players[0].latency_us.unwrap();
+    assert!(latency < 100_000, "{latency}");
+    assert_eq!(record.result.reason, EndReason::Cleared);
 }
 
 #[test]
@@ -299,7 +442,7 @@ fn records_the_maze_and_config() {
 
 #[test]
 fn wrong_player_counts_and_missing_programs_are_errors() {
-    let err = run_match(ring(), None, vec![], &config(Seating::Solo), |_, _| {}).unwrap_err();
+    let err = run_match(ring(), None, vec![], &config(Seating::Solo), &mut ()).unwrap_err();
     assert!(matches!(err, MatchError::WrongPlayerCount { .. }));
     let missing = Entrant {
         name: "ghost".to_owned(),
@@ -307,13 +450,6 @@ fn wrong_player_counts_and_missing_programs_are_errors() {
         command: std::process::Command::new("/nonexistent/bot"),
         stderr_log: None,
     };
-    let err = run_match(
-        ring(),
-        None,
-        vec![missing],
-        &config(Seating::Solo),
-        |_, _| {},
-    )
-    .unwrap_err();
+    let err = run_match(ring(), None, vec![missing], &config(Seating::Solo), &mut ()).unwrap_err();
     assert!(matches!(err, MatchError::Spawn { .. }));
 }

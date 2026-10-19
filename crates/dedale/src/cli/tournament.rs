@@ -18,11 +18,11 @@ use super::summary::{describe, format_table, score};
 use super::{CliResult, ColorChoice, MazeArgs, timestamp};
 use crate::bot::BotSpec;
 use crate::python::PythonRuntime;
-use crate::referee::Entrant;
+use crate::referee::{Entrant, Observer};
 use crate::render::{Style, format_us};
 use crate::tournament::{
-    BotInfo, GameEntry, GamePlan, MazeSource, Mode, Standing, TOURNAMENT_FORMAT, TournamentReport,
-    game_dir, play, schedule, standings,
+    BotInfo, GameEntry, GamePlan, MazeSource, Mode, Standing, TOURNAMENT_FORMAT,
+    TournamentObserver, TournamentReport, game_dir, play, schedule, standings,
 };
 
 #[derive(Debug, Args)]
@@ -100,28 +100,11 @@ pub(crate) fn run(args: &TournamentArgs) -> CliResult {
     };
     // The seating is set per game.
     let config = args.timing.config(Seating::Solo);
-    let total = plans.len();
-    let games = play(
-        &plans,
-        &names,
-        maze,
-        entrant,
-        &config,
-        &out,
-        |plan, record| {
-            let dir = game_dir(plan, &names);
-            let name = dir
-                .file_name()
-                .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
-            // Same thread: the lock above is reentrant.
-            let _ = writeln!(
-                io::stdout(),
-                "game {:>3}/{total}  {name}  {}",
-                plan.index,
-                describe(record)
-            );
-        },
-    )?;
+    let mut progress = Progress {
+        names: &names,
+        total: plans.len(),
+    };
+    let games = play(&plans, &names, maze, entrant, &config, &out, &mut progress)?;
 
     let report = TournamentReport {
         format: TOURNAMENT_FORMAT,
@@ -163,6 +146,31 @@ pub(crate) fn run(args: &TournamentArgs) -> CliResult {
     writeln!(stdout)?;
     writeln!(stdout, "results  {}", path.display())?;
     Ok(())
+}
+
+/// Prints a line per finished game.
+struct Progress<'a> {
+    names: &'a [String],
+    total: usize,
+}
+
+impl Observer for Progress<'_> {}
+
+impl TournamentObserver for Progress<'_> {
+    fn game_done(&mut self, plan: &GamePlan, record: &GameRecord) {
+        let dir = game_dir(plan, self.names);
+        let name = dir
+            .file_name()
+            .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+        // Same thread as the caller's lock: stdout's lock is reentrant.
+        let _ = writeln!(
+            io::stdout(),
+            "game {:>3}/{}  {name}  {}",
+            plan.index,
+            self.total,
+            describe(record)
+        );
+    }
 }
 
 /// Duo for two bots, solo for one or with `--solo`.

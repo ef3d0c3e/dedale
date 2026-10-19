@@ -20,7 +20,7 @@ use dedale_core::stats::Summary;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::referee::{Entrant, MatchConfig, MatchError, run_match};
+use crate::referee::{Entrant, MatchConfig, MatchError, Observer, run_match};
 use crate::replay;
 
 /// Version of `tournament.json`.
@@ -273,9 +273,17 @@ pub fn game_dir(plan: &GamePlan, names: &[String]) -> PathBuf {
     PathBuf::from("games").join(format!("{:03}-{maze}-{who}", plan.index))
 }
 
+/// Watches a tournament: every game as an [`Observer`], plus each result.
+pub trait TournamentObserver: Observer {
+    /// After each game, once its replay is written.
+    fn game_done(&mut self, _plan: &GamePlan, _record: &GameRecord) {}
+}
+
+impl TournamentObserver for () {}
+
 /// Plays `plans` in order under `out`, writing each game's replay as soon
 /// as it ends. `entrant(bot, dir)` starts a bot with its logs in `dir`;
-/// `done` is called after each game.
+/// `observer` watches every game.
 ///
 /// # Errors
 ///
@@ -288,7 +296,7 @@ pub fn play(
     mut entrant: impl FnMut(usize, &Path) -> Entrant,
     config: &MatchConfig,
     out: &Path,
-    mut done: impl FnMut(&GamePlan, &GameRecord),
+    observer: &mut dyn TournamentObserver,
 ) -> Result<Vec<(GamePlan, GameRecord)>, TournamentError> {
     let mut games = Vec::new();
     for plan in plans {
@@ -303,16 +311,15 @@ pub fn play(
             seating: plan.seating,
             ..config.clone()
         };
-        let record =
-            run_match(maze(plan), plan.code, entrants, &config, |_, _| {}).map_err(|source| {
-                TournamentError::Match {
-                    game: plan.index,
-                    source,
-                }
-            })?;
+        let record = run_match(maze(plan), plan.code, entrants, &config, &mut *observer).map_err(
+            |source| TournamentError::Match {
+                game: plan.index,
+                source,
+            },
+        )?;
         let path = dir.join("replay.json");
         replay::write(&path, &record).map_err(|e| write_error(e, &path))?;
-        done(plan, &record);
+        observer.game_done(plan, &record);
         games.push((plan.clone(), record));
     }
     Ok(games)
