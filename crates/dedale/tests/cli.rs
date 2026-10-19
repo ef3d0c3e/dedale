@@ -1,0 +1,259 @@
+//! The `dedale` binary, end to end.
+
+mod common;
+
+use std::fs;
+use std::path::Path;
+use std::process::{Command, Output, Stdio};
+use std::thread::sleep;
+use std::time::{Duration, Instant};
+
+use common::{example_bot, test_bot};
+use dedale::replay;
+use dedale_core::game::EndReason;
+use dedale_core::maze::Maze;
+use dedale_core::verify::verify;
+use nix::sys::signal::{Signal, kill};
+use nix::unistd::Pid;
+
+fn dedale(args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_dedale"))
+        .args(args)
+        .env("DEDALE_PYTHON", common::python())
+        .output()
+        .unwrap()
+}
+
+fn stdout(output: &Output) -> String {
+    String::from_utf8(output.stdout.clone()).unwrap()
+}
+
+fn stderr(output: &Output) -> String {
+    String::from_utf8(output.stderr.clone()).unwrap()
+}
+
+fn golden_maze(code: &str) -> String {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../dedale-core/tests/golden")
+        .join(format!("{code}.txt"));
+    fs::read_to_string(path).unwrap()
+}
+
+fn path(p: &Path) -> &str {
+    p.to_str().unwrap()
+}
+
+#[test]
+fn maze_codes_reproduce_mazes() {
+    let code = "ded1-11x7-l25-p100-0123456789abcdef";
+    let output = dedale(&["maze", "--maze", code]);
+    assert!(output.status.success());
+    assert_eq!(stdout(&output), golden_maze(code));
+    assert_eq!(stderr(&output).trim(), code);
+
+    let output = dedale(&[
+        "maze",
+        "--size",
+        "21x15",
+        "--loops",
+        "100",
+        "--density",
+        "40",
+        "--seed",
+        "deadbeef",
+    ]);
+    assert_eq!(
+        stdout(&output),
+        golden_maze("ded1-21x15-l100-p40-00000000deadbeef")
+    );
+}
+
+#[test]
+fn random_mazes_come_with_their_code() {
+    let output = dedale(&["maze", "--size", "15x9"]);
+    let maze = Maze::parse(&stdout(&output)).unwrap();
+    assert_eq!((maze.width(), maze.height()), (15, 9));
+    let code = stderr(&output).trim().to_owned();
+    assert!(code.starts_with("ded1-15x9-l25-p100-"), "{code}");
+    assert_eq!(stdout(&dedale(&["maze", "--maze", &code])), stdout(&output));
+}
+
+#[test]
+fn bad_arguments_are_rejected() {
+    for args in [
+        &["maze", "--size", "30x31"][..],
+        &["maze", "--maze", "ded9-31x31-l25-p100-0000000000000000"],
+        &[
+            "maze",
+            "--maze",
+            "ded1-31x31-l25-p100-0000000000000000",
+            "--size",
+            "11x11",
+        ],
+        &["maze", "--density", "120"],
+        &["run"],
+        &["run", "a.py", "b.py", "c.py"],
+    ] {
+        let output = dedale(args);
+        assert!(!output.status.success(), "{args:?} succeeded");
+        assert!(!stderr(&output).is_empty(), "{args:?}");
+    }
+}
+
+#[test]
+fn a_missing_bot_is_an_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("out");
+    let output = dedale(&[
+        "run",
+        "/nonexistent/bot",
+        "--size",
+        "5x5",
+        "--out",
+        path(&out),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        stderr(&output).contains("cannot start bot"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn a_solo_run_writes_a_verified_replay() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("out");
+    let greedy = example_bot("greedy_bot");
+    let output = dedale(&[
+        "run",
+        path(&greedy),
+        "--size",
+        "11x11",
+        "--seed",
+        "7",
+        "--out",
+        path(&out),
+    ]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let text = stdout(&output);
+    assert!(
+        text.starts_with("maze    ded1-11x11-l25-p100-0000000000000007\n"),
+        "{text}"
+    );
+    assert!(text.contains("result  cleared on turn"), "{text}");
+    assert!(text.contains("greedy_bot"), "{text}");
+    let record = replay::read(&out.join("replay.json")).unwrap();
+    assert_eq!(verify(&record), Ok(()));
+    assert_eq!(record.result.reason, EndReason::Cleared);
+    assert!(out.join("greedy_bot.stderr.log").exists());
+}
+
+#[test]
+fn watching_a_duo_from_a_map() {
+    let dir = tempfile::tempdir().unwrap();
+    let map = dir.path().join("ring.txt");
+    fs::write(&map, "_....\n.###.\n.###.\n.###.\n...._\n").unwrap();
+    let out = dir.path().join("out");
+    let (greedy, random) = (example_bot("greedy_bot"), example_bot("random_bot"));
+    let args = [
+        "run",
+        path(&greedy),
+        path(&random),
+        "--map",
+        path(&map),
+        "--watch",
+        "--ascii",
+        "--color",
+        "never",
+        "--out",
+        path(&out),
+    ];
+    let output = dedale(&args);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let text = stdout(&output);
+    assert!(text.contains("turn 0/100 - 14 points left\n"), "{text}");
+    assert!(text.contains("turn 1/100"), "{text}");
+    assert!(text.contains("A . . . .\n"), "{text}");
+    assert!(text.is_ascii());
+    let record = replay::read(&out.join("replay.json")).unwrap();
+    assert_eq!(record.code, None);
+    assert_eq!(verify(&record), Ok(()));
+}
+
+#[test]
+fn problems_show_in_the_summary() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("out");
+    let bot = test_bot("raise_move");
+    let output = dedale(&[
+        "run",
+        path(&bot),
+        "--size",
+        "7x7",
+        "--max-turns",
+        "5",
+        "--out",
+        path(&out),
+    ]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(stdout(&output).contains("1 error"), "{}", stdout(&output));
+}
+
+/// The children of `pid`, from /proc.
+fn children(pid: u32) -> Vec<u32> {
+    fs::read_to_string(format!("/proc/{pid}/task/{pid}/children"))
+        .unwrap_or_default()
+        .split_whitespace()
+        .map(|p| p.parse().unwrap())
+        .collect()
+}
+
+fn alive(pid: u32) -> bool {
+    let stat = fs::read_to_string(format!("/proc/{pid}/stat")).unwrap_or_default();
+    !stat.is_empty()
+        && !stat
+            .rsplit(')')
+            .next()
+            .unwrap_or("")
+            .trim_start()
+            .starts_with('Z')
+}
+
+#[test]
+fn ctrl_c_stops_the_game_and_its_bots() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("out");
+    let mut child = Command::new(env!("CARGO_BIN_EXE_dedale"))
+        .args([
+            "run",
+            path(&test_bot("infinite_loop")),
+            path(&example_bot("random_bot")),
+            "--max-turns",
+            "100000",
+            "--out",
+            path(&out),
+        ])
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut bots = Vec::new();
+    while bots.len() < 2 && Instant::now() < deadline {
+        sleep(Duration::from_millis(50));
+        bots = children(child.id());
+    }
+    assert_eq!(bots.len(), 2, "the bots never started");
+    sleep(Duration::from_millis(500));
+
+    let pid = Pid::from_raw(i32::try_from(child.id()).unwrap());
+    kill(pid, Signal::SIGINT).unwrap();
+    let status = child.wait().unwrap();
+    assert_eq!(status.code(), Some(130));
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while bots.iter().any(|&b| alive(b)) && Instant::now() < deadline {
+        sleep(Duration::from_millis(20));
+    }
+    assert!(bots.iter().all(|&b| !alive(b)), "a bot survived");
+}

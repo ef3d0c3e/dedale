@@ -1,3 +1,3 @@
-fn main() {
-    println!("dedale {}", env!("CARGO_PKG_VERSION"));
+fn main() -> std::process::ExitCode {
+    dedale::cli::main()
 }

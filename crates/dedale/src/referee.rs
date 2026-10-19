@@ -28,6 +28,7 @@ use dedale_core::record::{
 use dedale_core::stats::compute_stats;
 use thiserror::Error;
 
+use crate::interrupt;
 use crate::process::{BotProcess, ExitReport, Output};
 
 /// Events kept per player; a flood beyond this is summarized once.
@@ -92,6 +93,8 @@ pub enum MatchError {
         expected: usize,
         got: usize,
     },
+    #[error("interrupted")]
+    Interrupted,
 }
 
 /// Plays one game and returns its full record. `observe` is called after
@@ -99,8 +102,9 @@ pub enum MatchError {
 ///
 /// # Errors
 ///
-/// When the number of entrants does not match the seating or a bot cannot
-/// be started. Misbehaving bots are never an error.
+/// When the number of entrants does not match the seating, a bot cannot be
+/// started, or [`interrupt::request`] was called (every bot is killed).
+/// Misbehaving bots are never an error.
 ///
 /// # Panics
 ///
@@ -130,7 +134,7 @@ pub fn run_match(
         referee.seats.push(Seat::spawn(entrant)?);
     }
 
-    referee.handshake(config.hello_timeout);
+    referee.handshake(config.hello_timeout)?;
     let init = |you| {
         ToBot::Init(Init {
             protocol: PROTOCOL_VERSION,
@@ -151,7 +155,7 @@ pub fn run_match(
         seat.init_sent = init_sent;
         seat.startup_deadline = init_sent + config.startup;
     }
-    referee.await_startup(init_sent + config.startup);
+    referee.await_startup(init_sent + config.startup)?;
 
     let mut game = Game::new(maze.clone(), config.seating, max_turns);
     let mut turns = Vec::new();
@@ -169,9 +173,9 @@ pub fn run_match(
             seat.send(&msg);
         }
         let deadline = sent + config.move_timeout;
-        let replies: Vec<Reply> = (0..referee.seats.len())
+        let replies = (0..referee.seats.len())
             .map(|player| referee.await_reply(player, turn, sent, deadline))
-            .collect();
+            .collect::<Result<Vec<Reply>, MatchError>>()?;
         let inputs: Vec<Input> = replies.iter().map(|r| r.input).collect();
         let report = game.step(&inputs);
         collected.clone_from(&report.collected);
@@ -315,8 +319,24 @@ impl Seat {
         }
     }
 
-    fn recv_until(&self, deadline: Instant) -> Option<Output> {
-        self.process.as_ref()?.recv_until(deadline)
+    /// The next output before `deadline`, waking up every
+    /// [`interrupt::POLL`] to honour a stop request.
+    fn recv_until(&self, deadline: Instant) -> Result<Option<Output>, MatchError> {
+        let Some(process) = &self.process else {
+            return Ok(None);
+        };
+        loop {
+            if interrupt::requested() {
+                return Err(MatchError::Interrupted);
+            }
+            let slice = deadline.min(Instant::now() + interrupt::POLL);
+            if let Some(output) = process.recv_until(slice) {
+                return Ok(Some(output));
+            }
+            if slice >= deadline {
+                return Ok(None);
+            }
+        }
     }
 
     /// Reaps a bot that is gone or must go; it plays no further part.
@@ -404,10 +424,13 @@ impl Referee {
     /// Waits for every bot's `hello`, all against one deadline. A bot that
     /// fails the handshake is retired at once, so it cannot run alongside
     /// the others.
-    fn handshake(&mut self, timeout: Duration) {
+    fn handshake(&mut self, timeout: Duration) -> Result<(), MatchError> {
         let deadline = Instant::now() + timeout;
         for player in 0..self.seats.len() {
-            let failure = match self.seats[player].recv_until(deadline) {
+            if !self.seats[player].alive() {
+                continue;
+            }
+            let failure = match self.seats[player].recv_until(deadline)? {
                 None => format!("no hello within {} ms", timeout.as_millis()),
                 Some(Output::Closed { .. }) => "exited before saying hello".to_owned(),
                 Some(Output::Oversized { .. }) => "oversized line instead of hello".to_owned(),
@@ -420,19 +443,21 @@ impl Referee {
             };
             self.seats[player].fail_startup(failure);
         }
+        Ok(())
     }
 
     /// Gives every bot until `deadline` to report `ready` (or an `init()`
     /// error); returns early once all have.
-    fn await_startup(&mut self, deadline: Instant) {
+    fn await_startup(&mut self, deadline: Instant) -> Result<(), MatchError> {
         for player in 0..self.seats.len() {
             while self.seats[player].alive() && !self.seats[player].ready {
-                let Some(output) = self.seats[player].recv_until(deadline) else {
+                let Some(output) = self.seats[player].recv_until(deadline)? else {
                     break;
                 };
                 self.background(player, 0, output);
             }
         }
+        Ok(())
     }
 
     /// Handles whatever bots sent between turns: late replies, a late
@@ -490,31 +515,31 @@ impl Referee {
         turn: u32,
         sent_at: Instant,
         deadline: Instant,
-    ) -> Reply {
+    ) -> Result<Reply, MatchError> {
         loop {
             let seat = &self.seats[player];
             if !seat.alive() {
-                return Reply::failed(Failure::Crashed);
+                return Ok(Reply::failed(Failure::Crashed));
             }
             let ready = seat.ready;
-            let Some(output) = seat.recv_until(deadline) else {
-                return Reply::failed(if ready {
+            let Some(output) = seat.recv_until(deadline)? else {
+                return Ok(Reply::failed(if ready {
                     Failure::Timeout
                 } else {
                     Failure::NotReady
-                });
+                }));
             };
             match output {
                 Output::Line { at, line } if ready => match decode_bot_line(&line) {
                     Ok(FromBot::Move(reply)) if reply.turn == turn => {
-                        return Reply::from_move(reply, micros(at - sent_at));
+                        return Ok(Reply::from_move(reply, micros(at - sent_at)));
                     }
                     Ok(msg) => self.message(player, turn, msg, at),
-                    Err(e) => return Reply::invalid(e.to_string(), micros(at - sent_at)),
+                    Err(e) => return Ok(Reply::invalid(e.to_string(), micros(at - sent_at))),
                 },
                 Output::Oversized { at } if ready => {
                     let reason = format!("line longer than {MAX_LINE} bytes");
-                    return Reply::invalid(reason, micros(at - sent_at));
+                    return Ok(Reply::invalid(reason, micros(at - sent_at)));
                 }
                 other => self.background(player, turn, other),
             }

@@ -23,6 +23,8 @@ path = "src/bin/dedale-fake-bot.rs"
 required-features = ["fake-bot"]
 
 [dependencies]
+clap = { version = "4.6.7", features = ["derive", "env"] }
+ctrlc = { version = "3.5.2", features = ["termination"] }
 dedale-core.workspace = true
 nix = { version = "0.31.3", default-features = false, features = ["signal"] }
 tempfile.workspace = true
