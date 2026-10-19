@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dedale"
+version = "0.1.0"
+description = "Python API for Dedale maze bots (for editors: Dedale embeds its own copy)"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+[tool.setuptools]
+packages = ["dedale"]
+
+[tool.setuptools.package-data]
+dedale = ["py.typed"]

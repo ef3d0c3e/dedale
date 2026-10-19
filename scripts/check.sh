@@ -30,6 +30,9 @@ cargo clippy --manifest-path fuzz/Cargo.toml --all-targets --locked -- -D warnin
 step "tests"
 cargo test --workspace --all-features --locked
 
+step "python tests"
+(cd bindings/python && PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -t .)
+
 step "stable build"
 if rustup toolchain list | grep -q '^stable'; then
     rustup run stable cargo check --workspace --all-targets --all-features --locked
