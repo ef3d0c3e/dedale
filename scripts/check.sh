@@ -51,7 +51,12 @@ if [[ -n $fuzz_secs ]]; then
         if [[ -f fuzz/dicts/$target.dict ]]; then
             args+=(-dict="fuzz/dicts/$target.dict")
         fi
-        rustup run nightly cargo fuzz run "$target" -- "${args[@]}"
+        corpus=(fuzz/corpus/"$target")
+        if [[ -d fuzz/seeds/$target ]]; then
+            corpus+=(fuzz/seeds/"$target")
+        fi
+        mkdir -p "${corpus[0]}"
+        rustup run nightly cargo fuzz run "$target" "${corpus[@]}" -- "${args[@]}"
     done
 fi
 

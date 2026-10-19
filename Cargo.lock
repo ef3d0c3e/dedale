@@ -107,6 +107,7 @@ version = "0.1.0"
 dependencies = [
  "dedale-core",
  "nix",
+ "serde_json",
  "tempfile",
  "thiserror",
 ]

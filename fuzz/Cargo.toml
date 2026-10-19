@@ -50,3 +50,10 @@ path = "fuzz_targets/bot_line.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "replay_read"
+path = "fuzz_targets/replay_read.rs"
+test = false
+doc = false
+bench = false

@@ -11,3 +11,7 @@ pub mod maze;
 pub mod protocol;
 pub mod record;
 pub mod rng;
+pub mod stats;
+#[cfg(test)]
+mod test_support;
+pub mod verify;

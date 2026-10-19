@@ -9,6 +9,8 @@ cargo fuzz list
 cargo fuzz run <target> -- -max_total_time=60
 ```
 
+`fuzz/seeds/<target>/` holds committed seed inputs (real replays, golden
+mazes), used next to the working corpus in `fuzz/corpus/<target>/`.
 `fuzz/dicts/<target>.dict` holds libFuzzer dictionary tokens for a target
 (`-dict=fuzz/dicts/<target>.dict`). `scripts/check.sh --fuzz <seconds>` runs
 every target for that long, with its dictionary when there is one.

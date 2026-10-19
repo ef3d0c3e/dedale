@@ -4,3 +4,4 @@ pub mod bot;
 pub mod process;
 pub mod python;
 pub mod referee;
+pub mod replay;

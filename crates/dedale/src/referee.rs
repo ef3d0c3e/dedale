@@ -25,6 +25,7 @@ use dedale_core::record::{
     ConfigRecord, EventKind, EventRecord, ExitRecord, GameRecord, PlayerRecord, PlayerTurnRecord,
     REPLAY_FORMAT, StartupOutcome, StartupRecord, TurnRecord,
 };
+use dedale_core::stats::compute_stats;
 use thiserror::Error;
 
 use crate::process::{BotProcess, ExitReport, Output};
@@ -187,7 +188,7 @@ pub fn run_match(
         .zip(starts)
         .map(|(seat, start)| seat.into_record(start))
         .collect();
-    Ok(GameRecord {
+    let mut record = GameRecord {
         format: REPLAY_FORMAT,
         dedale: env!("CARGO_PKG_VERSION").to_owned(),
         code,
@@ -202,7 +203,10 @@ pub fn run_match(
         turns,
         events: referee.events,
         result,
-    })
+        stats: Vec::new(),
+    };
+    record.stats = compute_stats(&record);
+    Ok(record)
 }
 
 struct Referee {

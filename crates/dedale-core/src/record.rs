@@ -4,12 +4,14 @@
 //! or a competitor's analysis needs is in here.
 
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::code::MazeCode;
-use crate::game::{GameResult, Outcome, Seating};
-use crate::grid::{Move, Pos};
+use crate::game::{GameResult, Outcome, PlayerState, Seating, Snapshot};
+use crate::grid::{Cell, Move, Pos};
 use crate::maze::Maze;
 use crate::protocol::{BotError, Mark};
+use crate::stats::PlayerStats;
 
 /// Version of the replay format.
 pub const REPLAY_FORMAT: u32 = 1;
@@ -28,6 +30,88 @@ pub struct GameRecord {
     pub turns: Vec<TurnRecord>,
     pub events: Vec<EventRecord>,
     pub result: GameResult,
+    /// Per-player aggregates, see [`crate::stats::compute_stats`].
+    pub stats: Vec<PlayerStats>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum ReplayError {
+    #[error("not a replay: {0}")]
+    Json(String),
+    #[error("replay format {found} is not supported; this Dedale reads format {REPLAY_FORMAT}")]
+    Format { found: u32 },
+}
+
+impl GameRecord {
+    /// The replay as compact JSON.
+    ///
+    /// # Panics
+    ///
+    /// Never: records always serialize.
+    #[must_use]
+    pub fn to_json(&self) -> String {
+        serde_json::to_string(self).expect("records serialize")
+    }
+
+    /// Reads a replay, checking its format version first.
+    ///
+    /// # Errors
+    ///
+    /// When the text is not a replay or has another format version.
+    pub fn from_json(text: &str) -> Result<Self, ReplayError> {
+        #[derive(Deserialize)]
+        struct Header {
+            format: u32,
+        }
+        let json = |e: serde_json::Error| ReplayError::Json(e.to_string());
+        let header: Header = serde_json::from_str(text).map_err(json)?;
+        if header.format != REPLAY_FORMAT {
+            return Err(ReplayError::Format {
+                found: header.format,
+            });
+        }
+        serde_json::from_str(text).map_err(json)
+    }
+
+    /// The state after `turn` (0 for the start), rebuilt from the stored
+    /// positions and collections without simulating anything; `None` past
+    /// the last turn.
+    #[must_use]
+    pub fn state_at(&self, turn: u32) -> Option<Snapshot> {
+        let played = usize::try_from(turn).ok()?;
+        let turns = self.turns.get(..played)?;
+        let mut board = self.maze.grid().clone();
+        for pos in turns.iter().flat_map(|t| &t.collected) {
+            if board.contains(*pos) {
+                board.set(*pos, Cell::Empty);
+            }
+        }
+        let players = match turns.last() {
+            None => self
+                .players
+                .iter()
+                .map(|p| PlayerState {
+                    pos: p.start,
+                    half_points: 0,
+                    last_move: None,
+                })
+                .collect(),
+            Some(last) => last
+                .players
+                .iter()
+                .map(|p| PlayerState {
+                    pos: p.pos,
+                    half_points: p.half_points,
+                    last_move: Some(p.applied),
+                })
+                .collect(),
+        };
+        Some(Snapshot {
+            turn,
+            board,
+            players,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -151,7 +235,7 @@ pub enum EventKind {
 
 #[cfg(test)]
 mod tests {
-    use super::{EventKind, EventRecord};
+    use super::{EventKind, EventRecord, GameRecord, REPLAY_FORMAT, ReplayError};
 
     #[test]
     fn events_are_flat() {
@@ -163,5 +247,24 @@ mod tests {
         let json = serde_json::to_string(&late).unwrap();
         assert_eq!(json, r#"{"turn":7,"player":1,"kind":"late","for_turn":6}"#);
         assert_eq!(serde_json::from_str::<EventRecord>(&json).unwrap(), late);
+    }
+
+    #[test]
+    fn rejects_other_formats_and_garbage() {
+        let next = format!(r#"{{"format":{},"anything":true}}"#, REPLAY_FORMAT + 1);
+        assert_eq!(
+            GameRecord::from_json(&next),
+            Err(ReplayError::Format {
+                found: REPLAY_FORMAT + 1
+            })
+        );
+        assert!(matches!(
+            GameRecord::from_json("not json"),
+            Err(ReplayError::Json(_))
+        ));
+        assert!(matches!(
+            GameRecord::from_json(r#"{"format":1}"#),
+            Err(ReplayError::Json(_))
+        ));
     }
 }
