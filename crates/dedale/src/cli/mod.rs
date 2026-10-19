@@ -2,8 +2,10 @@
 
 mod maze_args;
 mod run;
+mod serve;
 mod summary;
 mod tournament;
+mod view;
 mod viewer;
 
 use std::error::Error;
@@ -35,6 +37,8 @@ enum Command {
     Replay(viewer::ReplayArgs),
     /// Play a series of games and rank the bots.
     Tournament(tournament::TournamentArgs),
+    /// Browse runs and tournaments in the browser.
+    View(view::BrowseArgs),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -70,6 +74,7 @@ pub fn main() -> ExitCode {
         Command::Maze(args) => maze(&args),
         Command::Replay(args) => viewer::run(&args),
         Command::Tournament(args) => tournament::run(&args),
+        Command::View(args) => view::run(&args),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

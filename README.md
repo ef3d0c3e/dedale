@@ -190,6 +190,14 @@ of mazes (default 10); `--seed` is the master seed all maze codes derive from,
 so a tournament can be replayed exactly. It writes every game's replay plus a
 `tournament.json` with the leaderboard.
 
+### `dedale view [DIR]`
+
+Opens the browser app over a directory of results (default `dedale-out/`):
+every run and tournament under it, newest first. Dedale serves the app
+itself, on `127.0.0.1` only, behind a secret token in the printed address;
+`--port N` picks the port, `--no-open` prints the address without opening a
+browser. Ctrl-C stops it.
+
 ## Analytics
 
 Each game's `replay.json` holds everything: the maze, the configuration,
