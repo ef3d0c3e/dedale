@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use clap::Args;
 use dedale_core::code::{MazeCode, MazeParams};
-use dedale_core::generator::generate;
+use dedale_core::generator::generate_normalized;
 use dedale_core::maze::Maze;
 
 use super::CliResult;
@@ -13,7 +13,7 @@ use super::CliResult;
 #[derive(Debug, Clone, Args)]
 pub struct MazeArgs {
     /// Replay a maze from its code (printed at the start of every game).
-    #[arg(long, value_name = "CODE", conflicts_with_all = ["size", "loops", "density", "seed", "map"])]
+    #[arg(long, value_name = "CODE", conflicts_with_all = ["size", "loops", "points", "seed", "map"])]
     pub maze: Option<MazeCode>,
     /// Maze size, odd sides from 5 to 255 [default: 31x31].
     #[arg(long, value_name = "WxH", value_parser = parse_size)]
@@ -21,14 +21,15 @@ pub struct MazeArgs {
     /// Share of dead ends opened into loops, in percent [default: 25].
     #[arg(long, value_name = "PERCENT")]
     pub loops: Option<u32>,
-    /// Share of open cells holding a point, in percent [default: 100].
-    #[arg(long, value_name = "PERCENT")]
-    pub density: Option<u32>,
+    /// Number of points; more than the maze holds means all of them
+    /// [default: all].
+    #[arg(long, value_name = "N")]
+    pub points: Option<u32>,
     /// Seed, up to 16 hex digits [default: random].
     #[arg(long, value_name = "HEX", value_parser = parse_seed)]
     pub seed: Option<u64>,
     /// Load the maze from a text file (`#` wall, `.` point, `_` empty).
-    #[arg(long, value_name = "FILE", conflicts_with_all = ["size", "loops", "density", "seed"])]
+    #[arg(long, value_name = "FILE", conflicts_with_all = ["size", "loops", "points", "seed"])]
     pub map: Option<PathBuf>,
 }
 
@@ -42,14 +43,16 @@ impl MazeArgs {
             width,
             height,
             self.loops.unwrap_or(d.loops().into()),
-            self.density.unwrap_or(d.density().into()),
+            self.points.unwrap_or(d.points().into()),
         )?)
     }
 
-    /// The maze, and its code unless it came from a file.
+    /// The maze, and its normalized code (with the number of points
+    /// actually placed) unless it came from a file.
     pub(crate) fn resolve(&self) -> CliResult<(Maze, Option<MazeCode>)> {
         if let Some(code) = self.maze {
-            return Ok((generate(&code), Some(code)));
+            let (maze, code) = generate_normalized(&code);
+            return Ok((maze, Some(code)));
         }
         if let Some(path) = &self.map {
             let text = fs::read_to_string(path)
@@ -62,7 +65,8 @@ impl MazeArgs {
             || MazeCode::random(params),
             |seed| MazeCode::new(params, seed),
         );
-        Ok((generate(&code), Some(code)))
+        let (maze, code) = generate_normalized(&code);
+        Ok((maze, Some(code)))
     }
 }
 

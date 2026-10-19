@@ -38,7 +38,7 @@ dedale  → end                   exit now; killed after 1 s
 `init`:
 
 ```json
-{"type": "init", "protocol": 1, "code": "ded1-31x31-l25-p100-9f3a0c11d2e4b6a8",
+{"type": "init", "protocol": 1, "code": "ded2-31x31-l25-p534-9f3a0c11d2e4b6a8",
  "width": 31, "height": 31, "cells": "_.....",
  "you": 0, "players": [{"pos": [0, 0]}, {"pos": [30, 30]}],
  "startup_ms": 2000, "move_ms": 100, "max_turns": 3844}

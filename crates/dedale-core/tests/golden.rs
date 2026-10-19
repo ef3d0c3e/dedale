@@ -9,11 +9,12 @@ use std::path::Path;
 use dedale_core::code::MazeCode;
 use dedale_core::generator::generate;
 
-const CODES: [&str; 4] = [
-    "ded1-5x5-l0-p100-0000000000000000",
-    "ded1-11x7-l25-p100-0123456789abcdef",
-    "ded1-21x15-l100-p40-00000000deadbeef",
-    "ded1-31x31-l25-p100-9f3a0c11d2e4b6a8",
+const CODES: [&str; 5] = [
+    "ded2-5x5-l0-p65535-0000000000000000",
+    "ded2-11x7-l25-p65535-0123456789abcdef",
+    "ded2-21x15-l100-p60-00000000deadbeef",
+    "ded2-25x25-l25-p101-0000000000000007",
+    "ded2-31x31-l25-p65535-9f3a0c11d2e4b6a8",
 ];
 
 #[test]

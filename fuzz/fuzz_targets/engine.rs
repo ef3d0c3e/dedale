@@ -20,7 +20,7 @@ fn input(byte: u8) -> Input {
 }
 
 fuzz_target!(|data: &[u8]| {
-    let Some((&[w, h, loops, density, seating, max_turns], rest)) = data.split_first_chunk::<6>()
+    let Some((&[w, h, loops, points, seating, max_turns], rest)) = data.split_first_chunk::<6>()
     else {
         return;
     };
@@ -28,13 +28,8 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
     let side = |b: u8| 5 + 2 * u32::from(b % 8);
-    let params = MazeParams::new(
-        side(w),
-        side(h),
-        u32::from(loops % 101),
-        u32::from(density % 101),
-    )
-    .expect("in range by construction");
+    let params = MazeParams::new(side(w), side(h), u32::from(loops % 101), u32::from(points))
+        .expect("in range by construction");
     let maze = generate(&MazeCode::new(params, u64::from_le_bytes(*seed)));
     let initial = maze.point_count();
     let seating = [Seating::Solo, Seating::Duo, Seating::DuoSwapped][usize::from(seating % 3)];

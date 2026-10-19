@@ -11,7 +11,7 @@ use dedale::referee::{Entrant, MatchConfig, run_match};
 use dedale::replay::{self, ReadError};
 use dedale_core::code::MazeCode;
 use dedale_core::game::Seating;
-use dedale_core::generator::generate;
+use dedale_core::generator::generate_normalized;
 use dedale_core::record::GameRecord;
 use dedale_core::stats::compute_stats;
 use dedale_core::verify::verify;
@@ -21,7 +21,8 @@ const LAP: &str = "right,right,right,right,down,down,down,down,left,left,left,le
 /// A duo game on a generated 5×5 maze between two fake bots, one of them
 /// misbehaving now and then.
 fn game() -> GameRecord {
-    let code: MazeCode = "ded1-5x5-l0-p100-0000000000000000".parse().unwrap();
+    let code: MazeCode = "ded2-5x5-l0-p65535-0000000000000000".parse().unwrap();
+    let (maze, code) = generate_normalized(&code);
     let entrants = vec![
         Entrant {
             name: "lap".to_owned(),
@@ -40,7 +41,7 @@ fn game() -> GameRecord {
     config.startup = Duration::from_millis(500);
     config.max_turns = Some(12);
     config.end_grace = Duration::from_millis(500);
-    run_match(generate(&code), Some(code), entrants, &config, |_, _| {}).unwrap()
+    run_match(maze, Some(code), entrants, &config, |_, _| {}).unwrap()
 }
 
 /// Replaces what varies between runs (timings, version) with fixed values.

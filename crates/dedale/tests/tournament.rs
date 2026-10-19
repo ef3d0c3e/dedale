@@ -173,7 +173,7 @@ fn bad_tournaments_are_rejected() {
     let output = dedale(&["tournament", bot, bot, bot, "--games", "1"]);
     assert_eq!(output.status.code(), Some(1));
     assert!(text(&output.stderr).contains("add --solo"));
-    let code = "ded1-9x9-l25-p100-0000000000000001";
+    let code = "ded2-9x9-l25-p100-0000000000000001";
     let output = dedale(&["tournament", bot, "--maze", code]);
     assert_eq!(output.status.code(), Some(1));
     assert!(text(&output.stderr).contains("--seed"));

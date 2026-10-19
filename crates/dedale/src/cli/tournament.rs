@@ -191,7 +191,7 @@ fn mazes(args: &TournamentArgs) -> CliResult<(Option<MazeParams>, Option<Maze>, 
         width: p.width(),
         height: p.height(),
         loops: p.loops(),
-        density: p.density(),
+        points: p.points(),
     };
     Ok((Some(p), None, source))
 }

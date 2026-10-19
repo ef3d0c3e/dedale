@@ -84,7 +84,7 @@ fn a_python_bot_clears_the_ring() {
 #[test]
 fn greedy_clears_a_full_size_maze() {
     let runtime = PythonRuntime::extract().unwrap();
-    let code: MazeCode = "ded1-31x31-l25-p100-9f3a0c11d2e4b6a8".parse().unwrap();
+    let code: MazeCode = "ded2-31x31-l25-p65535-9f3a0c11d2e4b6a8".parse().unwrap();
     let entrant = python_entrant(&runtime, &example_bot("greedy_bot"));
     let config = MatchConfig::new(Seating::Solo);
     let record = run_match(
@@ -114,7 +114,7 @@ fn greedy_clears_a_full_size_maze() {
 #[test]
 fn greedy_beats_random() {
     let runtime = PythonRuntime::extract().unwrap();
-    let code: MazeCode = "ded1-21x21-l25-p100-0123456789abcdef".parse().unwrap();
+    let code: MazeCode = "ded2-21x21-l25-p65535-0123456789abcdef".parse().unwrap();
     let entrants = vec![
         python_entrant(&runtime, &example_bot("greedy_bot")),
         python_entrant(&runtime, &example_bot("random_bot")),

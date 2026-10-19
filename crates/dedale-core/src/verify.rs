@@ -143,7 +143,7 @@ fn input(turn: &PlayerTurnRecord) -> Option<Input> {
 #[cfg(test)]
 mod tests {
     use super::verify;
-    use crate::code::MazeCode;
+    use crate::code::{MazeCode, MazeParams};
     use crate::game::{EndReason, Outcome};
     use crate::grid::{Cell, Pos};
     use crate::record::GameRecord;
@@ -178,8 +178,16 @@ mod tests {
                 }
             }
             9 => {
+                // Another seed can give the same small maze; another size never does.
                 let code = record.code.unwrap();
-                record.code = Some(MazeCode::new(code.params(), code.seed() ^ 1));
+                let p = code.params();
+                let wider = MazeParams::new(
+                    u32::from(p.width()) + 2,
+                    p.height().into(),
+                    p.loops().into(),
+                    p.points().into(),
+                );
+                record.code = Some(MazeCode::new(wider.unwrap(), code.seed()));
             }
             10 => record.stats[p].half_points += 1,
             11 => record.stats[p].startup_us = None,

@@ -121,8 +121,8 @@ pub(crate) fn record() -> impl Strategy<Value = GameRecord> {
         seating,
         1u32..=80,
     )
-        .prop_flat_map(|(w, h, density, seed, seating, max_turns)| {
-            let params = MazeParams::new(2 * w + 1, 2 * h + 1, 25, density).unwrap();
+        .prop_flat_map(|(w, h, points, seed, seating, max_turns)| {
+            let params = MazeParams::new(2 * w + 1, 2 * h + 1, 25, points).unwrap();
             let code = MazeCode::new(params, seed);
             let turn = prop::collection::vec(input(), seating.players());
             prop::collection::vec(turn, 0..80)

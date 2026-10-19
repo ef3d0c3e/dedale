@@ -45,27 +45,45 @@ fn path(p: &Path) -> &str {
 
 #[test]
 fn maze_codes_reproduce_mazes() {
-    let code = "ded1-11x7-l25-p100-0123456789abcdef";
+    let code = "ded2-11x7-l25-p65535-0123456789abcdef";
     let output = dedale(&["maze", "--maze", code]);
     assert!(output.status.success());
     assert_eq!(stdout(&output), golden_maze(code));
-    assert_eq!(stderr(&output).trim(), code);
+    // The printed code carries the number of points actually placed.
+    let points = Maze::parse(&stdout(&output)).unwrap().point_count();
+    let normalized = format!("ded2-11x7-l25-p{points}-0123456789abcdef");
+    assert_eq!(stderr(&output).trim(), normalized);
+    let again = dedale(&["maze", "--maze", &normalized]);
+    assert_eq!(stdout(&again), stdout(&output));
+    assert_eq!(stderr(&again).trim(), normalized);
 
     let output = dedale(&[
-        "maze",
-        "--size",
-        "21x15",
-        "--loops",
-        "100",
-        "--density",
-        "40",
-        "--seed",
-        "deadbeef",
+        "maze", "--size", "21x15", "--loops", "100", "--points", "60", "--seed", "deadbeef",
     ]);
     assert_eq!(
         stdout(&output),
-        golden_maze("ded1-21x15-l100-p40-00000000deadbeef")
+        golden_maze("ded2-21x15-l100-p60-00000000deadbeef")
     );
+}
+
+#[test]
+fn point_counts_are_capped() {
+    let maze = |points: &str| {
+        let output = dedale(&["maze", "--size", "11x11", "--seed", "7", "--points", points]);
+        assert!(output.status.success(), "{}", stderr(&output));
+        let maze = Maze::parse(&stdout(&output)).unwrap();
+        (maze.point_count(), stderr(&output).trim().to_owned())
+    };
+    assert_eq!(
+        maze("10"),
+        (10, "ded2-11x11-l25-p10-0000000000000007".to_owned())
+    );
+    // The centre of an 11×11 maze is a pillar: points come in pairs.
+    assert_eq!(maze("11").0, 10);
+    let (all, code) = maze("1000000");
+    let open = maze("65535");
+    assert_eq!((all, &code), (open.0, &open.1));
+    assert_eq!(code, format!("ded2-11x11-l25-p{all}-0000000000000007"));
 }
 
 #[test]
@@ -74,7 +92,11 @@ fn random_mazes_come_with_their_code() {
     let maze = Maze::parse(&stdout(&output)).unwrap();
     assert_eq!((maze.width(), maze.height()), (15, 9));
     let code = stderr(&output).trim().to_owned();
-    assert!(code.starts_with("ded1-15x9-l25-p100-"), "{code}");
+    assert!(code.starts_with("ded2-15x9-l25-p"), "{code}");
+    assert!(
+        code.contains(&format!("-p{}-", maze.point_count())),
+        "{code}"
+    );
     assert_eq!(stdout(&dedale(&["maze", "--maze", &code])), stdout(&output));
 }
 
@@ -86,11 +108,12 @@ fn bad_arguments_are_rejected() {
         &[
             "maze",
             "--maze",
-            "ded1-31x31-l25-p100-0000000000000000",
+            "ded2-31x31-l25-p100-0000000000000000",
             "--size",
             "11x11",
         ],
-        &["maze", "--density", "120"],
+        &["maze", "--points", "lots"],
+        &["maze", "--maze", "ded1-31x31-l25-p100-0000000000000000"],
         &["run"],
         &["run", "a.py", "b.py", "c.py"],
     ] {
@@ -137,10 +160,11 @@ fn a_solo_run_writes_a_verified_replay() {
     ]);
     assert!(output.status.success(), "{}", stderr(&output));
     let text = stdout(&output);
-    assert!(
-        text.starts_with("maze    ded1-11x11-l25-p100-0000000000000007\n"),
-        "{text}"
-    );
+    let record = replay::read(&out.join("replay.json")).unwrap();
+    let points = record.maze.point_count();
+    let code = format!("ded2-11x11-l25-p{points}-0000000000000007");
+    assert!(text.starts_with(&format!("maze    {code}\n")), "{text}");
+    assert_eq!(record.code.unwrap().to_string(), code);
     assert!(text.contains("result  cleared on turn"), "{text}");
     assert!(text.contains("greedy_bot"), "{text}");
     let record = replay::read(&out.join("replay.json")).unwrap();

@@ -324,7 +324,7 @@ mod tests {
     fn golden_dedale_messages() {
         let init = ToBot::Init(Init {
             protocol: 1,
-            code: Some("ded1-5x5-l0-p100-0000000000000000".to_owned()),
+            code: Some("ded2-5x5-l0-p14-0000000000000000".to_owned()),
             width: 5,
             height: 5,
             cells: "_.....###.......###....._".to_owned(),
@@ -341,7 +341,7 @@ mod tests {
             move_ms: 100,
             max_turns: 100,
         });
-        let json = r#"{"type":"init","protocol":1,"code":"ded1-5x5-l0-p100-0000000000000000","width":5,"height":5,"cells":"_.....###.......###....._","you":0,"players":[{"pos":[0,0]},{"pos":[4,4]}],"startup_ms":2000,"move_ms":100,"max_turns":100}"#;
+        let json = r#"{"type":"init","protocol":1,"code":"ded2-5x5-l0-p14-0000000000000000","width":5,"height":5,"cells":"_.....###.......###....._","you":0,"players":[{"pos":[0,0]},{"pos":[4,4]}],"startup_ms":2000,"move_ms":100,"max_turns":100}"#;
         assert_eq!(encode_line(&init), line(json));
         assert_eq!(decode_dedale_line(json.as_bytes()), Ok(init));
 

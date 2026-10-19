@@ -21,8 +21,9 @@ cargo build --release
 - The maze is a grid of walls, empty cells and points, with odd sides
   (default 31×31) and **180° rotational symmetry**: walls and points look the
   same from both corners. Player A starts top-left at `(0, 0)`, player B
-  bottom-right. Every open cell is reachable; by default every open cell
-  except the starts holds a point.
+  bottom-right. Every open cell is reachable. You choose how many points the
+  maze holds (`--points`); by default every open cell except the starts holds
+  one.
 - Coordinates are `(x, y)`: origin top-left, `x` to the right, `y` down.
 - Every turn, each bot answers `up`, `down`, `left`, `right` or `stay`. Both
   moves happen **at the same time**. Characters never block each other: they
@@ -133,8 +134,8 @@ Plays one game. The maze's **code** is printed first: pass it back with
 
 | Option | |
 |---|---|
-| `--maze CODE` | The maze of a code, e.g. `ded1-31x31-l25-p100-9f3a0c11d2e4b6a8` |
-| `--size WxH`, `--loops %`, `--density %`, `--seed HEX` | Generate a maze (defaults 31x31, 25, 100, random) |
+| `--maze CODE` | The maze of a code, e.g. `ded2-31x31-l25-p534-9f3a0c11d2e4b6a8` |
+| `--size WxH`, `--loops %`, `--points N`, `--seed HEX` | Generate a maze (defaults 31x31, 25, every open cell, random) |
 | `--map FILE` | Load a maze from a text file (`#` wall, `.` point, `_` empty) |
 | `--startup-ms`, `--move-ms`, `--max-turns` | Timing and turn limit |
 | `--swap` | Start the first bot bottom-right |
@@ -147,9 +148,15 @@ At the end it prints the result and, per bot, the score, steps, startup time,
 latency percentiles and any problems (illegal moves, timeouts, errors...).
 Ctrl-C stops the game and every bot.
 
-A maze code reads `ded1-<W>x<H>-l<loops>-p<density>-<seed>`: generator
-version, size, share of dead ends opened into loops, share of open cells with
-a point, and the seed.
+A maze code reads `ded2-<W>x<H>-l<loops>-p<points>-<seed>`: generator
+version, size, share of dead ends opened into loops, number of points, and
+the seed.
+
+Point counts are capped, never rejected. Asking for more points than the maze
+has open cells gives every open cell a point; points come in symmetric pairs,
+so an odd count needs the centre cell and is rounded down when the maze has
+none. The code Dedale prints always carries the number of points actually
+placed, so `--points 100000` prints something like `p534`.
 
 ### `dedale maze`
 

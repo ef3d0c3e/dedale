@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 
 use dedale_core::code::{MazeCode, MazeParams};
 use dedale_core::game::{EndReason, GameResult, Seating};
+use dedale_core::generator::generate_normalized;
 use dedale_core::maze::Maze;
 use dedale_core::record::GameRecord;
 use dedale_core::rng::Rng;
@@ -47,7 +48,9 @@ pub struct GamePlan {
 }
 
 /// The games of a tournament, in order. Maze `i` gets the `i`-th seed of
-/// the master stream; with a map file (`params == None`) every game uses it.
+/// the master stream, and its code is normalized (it carries the number of
+/// points actually placed); with a map file (`params == None`) every game
+/// uses it.
 #[must_use]
 pub fn schedule(
     mode: Mode,
@@ -60,7 +63,7 @@ pub fn schedule(
     let mut plans = Vec::new();
     for _ in 0..mazes {
         let seed = seeds.next_u64();
-        let code = params.map(|p| MazeCode::new(p, seed));
+        let code = params.map(|p| generate_normalized(&MazeCode::new(p, seed)).1);
         let mut push = |seating, players: Vec<usize>| {
             plans.push(GamePlan {
                 index: plans.len() + 1,
@@ -201,7 +204,7 @@ pub enum MazeSource {
         width: u8,
         height: u8,
         loops: u8,
-        density: u8,
+        points: u16,
     },
     Map {
         path: String,
@@ -371,7 +374,7 @@ mod tests {
             [a, b] if b > a => Some(1),
             _ => None,
         };
-        let code = "ded1-5x5-l0-p100-0000000000000000".parse().unwrap();
+        let code = "ded2-5x5-l0-p14-0000000000000000".parse().unwrap();
         let record = GameRecord {
             format: 1,
             dedale: String::new(),

@@ -8,7 +8,7 @@
 //! stream, in a fixed order. Changing that order or any step changes the
 //! output and requires bumping [`crate::code::CODE_VERSION`].
 
-use crate::code::MazeCode;
+use crate::code::{ALL_POINTS, MazeCode};
 use crate::grid::{Cell, Grid, Move, Pos};
 use crate::maze::Maze;
 use crate::rng::Rng;
@@ -29,8 +29,17 @@ pub fn generate(code: &MazeCode) -> Maze {
     }
     connect(&mut grid, &mut rng);
     open_loops(&mut grid, &mut rng, params.loops());
-    place_points(&mut grid, &mut rng, params.density());
+    place_points(&mut grid, &mut rng, params.points());
     Maze::new(grid).expect("the generator builds valid mazes")
+}
+
+/// The maze a code describes, and the normalized code: the same maze, with
+/// the number of points actually placed instead of the number asked for.
+#[must_use]
+pub fn generate_normalized(code: &MazeCode) -> (Maze, MazeCode) {
+    let maze = generate(code);
+    let points = u16::try_from(maze.point_count()).unwrap_or(ALL_POINTS);
+    (maze, code.with_points(points))
 }
 
 fn is_room(pos: Pos) -> bool {
@@ -110,20 +119,40 @@ fn open_loops(grid: &mut Grid, rng: &mut Rng, loops: u8) {
     }
 }
 
-/// Step 3: each orbit of open cells except the starts holds points with
-/// probability `density`%.
-fn place_points(grid: &mut Grid, rng: &mut Rng, density: u8) {
+/// Step 3: `points` points. The open cells except the starts form pair
+/// orbits `{c, rot(c)}`, plus the centre cell when it is open. The pairs are
+/// shuffled and taken in order; an odd count also takes the centre, and is
+/// rounded down without one. A count above the open cells takes them all.
+fn place_points(grid: &mut Grid, rng: &mut Rng, points: u16) {
     let start = Pos::new(0, 0);
-    let cells: Vec<Pos> = grid
-        .positions()
-        .filter(|&p| p != start && grid.get(p).is_open() && is_orbit_representative(grid, p))
-        .collect();
-    for pos in cells {
-        if rng.chance(density) {
-            let twin = grid.rot(pos);
-            grid.set(pos, Cell::Point);
-            grid.set(twin, Cell::Point);
+    let mut pairs = Vec::new();
+    let mut centre = None;
+    for pos in grid.positions() {
+        if pos == start || !grid.get(pos).is_open() {
+            continue;
         }
+        let twin = grid.rot(pos);
+        if twin == pos {
+            centre = Some(pos);
+        } else if grid.index(pos) < grid.index(twin) {
+            pairs.push(pos);
+        }
+    }
+    rng.shuffle(&mut pairs);
+    let available = 2 * pairs.len() + usize::from(centre.is_some());
+    let wanted = usize::from(points);
+    let (with_centre, pair_count) = if wanted >= available {
+        (true, pairs.len())
+    } else {
+        (wanted % 2 == 1, wanted / 2)
+    };
+    if let Some(centre) = centre.filter(|_| with_centre) {
+        grid.set(centre, Cell::Point);
+    }
+    for &pos in &pairs[..pair_count] {
+        let twin = grid.rot(pos);
+        grid.set(pos, Cell::Point);
+        grid.set(twin, Cell::Point);
     }
 }
 
@@ -155,9 +184,9 @@ impl DisjointSets {
 
 #[cfg(test)]
 mod tests {
-    use super::{generate, is_edge, is_room};
-    use crate::code::{MazeCode, MazeParams};
-    use crate::grid::Cell;
+    use super::{generate, generate_normalized, is_edge, is_room};
+    use crate::code::{ALL_POINTS, MazeCode, MazeParams};
+    use crate::grid::{Cell, Pos};
     use crate::maze::Maze;
     use proptest::prelude::*;
 
@@ -168,15 +197,19 @@ mod tests {
         ]
     }
 
+    fn points() -> impl Strategy<Value = u32> {
+        prop_oneof![0u32..=100, 0u32..=2_000, Just(u32::from(ALL_POINTS)),]
+    }
+
     fn code() -> impl Strategy<Value = MazeCode> {
-        (side(), side(), 0u32..=100, 0u32..=100, any::<u64>()).prop_map(|(w, h, l, p, seed)| {
+        (side(), side(), 0u32..=100, points(), any::<u64>()).prop_map(|(w, h, l, p, seed)| {
             MazeCode::new(MazeParams::new(w, h, l, p).unwrap(), seed)
         })
     }
 
-    fn with(code: MazeCode, loops: u32, density: u32) -> MazeCode {
+    fn with(code: MazeCode, loops: u32, points: u32) -> MazeCode {
         let p = code.params();
-        let params = MazeParams::new(p.width().into(), p.height().into(), loops, density);
+        let params = MazeParams::new(p.width().into(), p.height().into(), loops, points);
         MazeCode::new(params.unwrap(), code.seed())
     }
 
@@ -188,21 +221,21 @@ mod tests {
 
     #[test]
     fn largest_maze() {
-        let code = MazeCode::new(MazeParams::new(255, 255, 25, 100).unwrap(), 1);
-        let maze = generate(&code);
+        let params = MazeParams::new(255, 255, 25, ALL_POINTS.into()).unwrap();
+        let maze = generate(&MazeCode::new(params, 1));
         assert_eq!((maze.width(), maze.height()), (255, 255));
     }
 
     #[test]
-    fn density_is_roughly_honoured() {
-        let code: MazeCode = "ded1-101x101-l25-p40-0000000000000007".parse().unwrap();
+    fn exact_counts() {
+        // The centre (50, 50) of a 101×101 maze is a room, so odd counts work.
+        let code: MazeCode = "ded2-101x101-l25-p1001-0000000000000007".parse().unwrap();
         let maze = generate(&code);
-        let open = maze.cells().iter().filter(|c| c.is_open()).count();
-        let points = maze.point_count();
-        assert!(
-            (35 * open..45 * open).contains(&(100 * points)),
-            "{points}/{open}"
-        );
+        assert_eq!(maze.point_count(), 1001);
+        assert_eq!(maze.get(Pos::new(50, 50)), Cell::Point);
+        // The centre (15, 15) of a 31×31 maze is a pillar: rounded down.
+        let code: MazeCode = "ded2-31x31-l25-p41-0000000000000007".parse().unwrap();
+        assert_eq!(generate(&code).point_count(), 40);
     }
 
     proptest! {
@@ -227,8 +260,8 @@ mod tests {
         }
 
         #[test]
-        fn full_density_fills_every_open_cell(code in code()) {
-            let maze = generate(&with(code, code.params().loops().into(), 100));
+        fn all_points_fill_every_open_cell(code in code()) {
+            let maze = generate(&with(code, code.params().loops().into(), ALL_POINTS.into()));
             let starts = maze.starts();
             for pos in maze.positions() {
                 let want = match maze.get(pos) {
@@ -241,22 +274,50 @@ mod tests {
         }
 
         #[test]
-        fn zero_density_places_no_points(code in code()) {
+        fn zero_points_place_none(code in code()) {
             let maze = generate(&with(code, code.params().loops().into(), 0));
             prop_assert_eq!(maze.point_count(), 0);
         }
 
+        // The count is honoured, capped to the open cells and rounded down to
+        // even when the maze has no centre cell.
+        #[test]
+        fn counts_are_capped(code in code()) {
+            let loops = code.params().loops().into();
+            let full = generate(&with(code, loops, ALL_POINTS.into()));
+            let available = full.point_count();
+            let centre = Pos::new(full.width() / 2, full.height() / 2);
+            let has_centre = full.get(centre) == Cell::Point;
+            let wanted = usize::from(code.params().points());
+            let expected = if wanted >= available {
+                available
+            } else if wanted % 2 == 1 && !has_centre {
+                wanted - 1
+            } else {
+                wanted
+            };
+            prop_assert_eq!(generate(&code).point_count(), expected);
+        }
+
+        #[test]
+        fn normalizing_the_code_keeps_the_maze(code in code()) {
+            let (maze, normalized) = generate_normalized(&code);
+            prop_assert_eq!(usize::from(normalized.params().points()), maze.point_count());
+            prop_assert_eq!(generate(&normalized), maze);
+            prop_assert_eq!(generate_normalized(&normalized).1, normalized);
+        }
+
         #[test]
         fn all_loops_leave_no_dead_ends(code in code()) {
-            let maze = generate(&with(code, 100, code.params().density().into()));
+            let maze = generate(&with(code, 100, code.params().points().into()));
             prop_assert_eq!(dead_ends(&maze), 0);
         }
 
-        // Density only places points: the walls do not depend on it.
+        // Points come last: the walls do not depend on their count.
         #[test]
-        fn density_does_not_move_walls(code in code(), density in 0u32..=100) {
+        fn points_do_not_move_walls(code in code(), points in points()) {
             let a = generate(&code);
-            let b = generate(&with(code, code.params().loops().into(), density));
+            let b = generate(&with(code, code.params().loops().into(), points));
             for pos in a.positions() {
                 prop_assert_eq!(a.get(pos).is_open(), b.get(pos).is_open());
             }

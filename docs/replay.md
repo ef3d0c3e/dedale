@@ -49,7 +49,7 @@ Written by `dedale tournament` (format 1).
 |---|---|
 | `master_seed` | 16 hex digits; every maze code derives from it |
 | `mode` | `duo` or `solo` |
-| `maze` | `{"generated": {width, height, loops, density}}` or `{"map": {path}}` |
+| `maze` | `{"generated": {width, height, loops, points}}` (`points` as asked for; 65535 means every open cell) or `{"map": {path}}` |
 | `startup_ms`, `move_ms`, `max_turns` | Timing |
 | `bots` | `name`, `path` |
 | `games` | `index`, `code`, `seating`, `bots` (who played, in player order), `result`, `replay` (path relative to this file) |
