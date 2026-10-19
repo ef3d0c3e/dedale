@@ -9,7 +9,8 @@ maze from opposite corners and race to collect its points:
 Bots are separate programs (Python first, any language through a simple
 protocol). Each gets a startup budget to precompute, then a time limit per
 move. Dedale records every game as a replay with full timing and error
-analytics, which it can rewind turn by turn.
+analytics, which it can rewind turn by turn, in the terminal or in its
+browser app, live or afterwards.
 
 ```sh
 cargo build --release
@@ -140,7 +141,7 @@ Plays one game. The maze's **code** is printed first: pass it back with
 | `--startup-ms`, `--move-ms`, `--max-turns` | Timing and turn limit |
 | `--swap` | Start the first bot bottom-right |
 | `--watch`, `--delay MS` | Draw every turn as it is played |
-| `--view` | Follow the game in the browser app instead (see `dedale view`); the bots start when you press Start there, and the page sets the pace. Dedale keeps serving the finished game until Ctrl-C. With `--port N`, `--no-open` |
+| `--view` | Follow the game in the [browser app](#browser-app) instead: the bots start when you press Start there, and the page sets the pace. With `--port N`, `--no-open` |
 | `--marks a\|b\|none`, `--ascii`, `--color auto\|always\|never` | Drawing options |
 | `--out DIR` | Where the replay and logs go (default `dedale-out/<time>-<maze>/`) |
 | `--python PATH` | Interpreter for `.py` bots (or `DEDALE_PYTHON`; default `python3`) |
@@ -190,16 +191,93 @@ and is ranked by mazes cleared, then total turns. `--games N` sets the number
 of mazes (default 10); `--seed` is the master seed all maze codes derive from,
 so a tournament can be replayed exactly. It writes every game's replay plus a
 `tournament.json` with the leaderboard. `--view` follows the whole tournament
-in the browser app, as with `dedale run`: one Start, every game live, the
+in the [browser app](#browser-app): one Start, every game live, the
 leaderboard after each game.
 
 ### `dedale view [DIR]`
 
-Opens the browser app over a directory of results (default `dedale-out/`):
-every run and tournament under it, newest first. Dedale serves the app
-itself, on `127.0.0.1` only, behind a secret token in the printed address;
-`--port N` picks the port, `--no-open` prints the address without opening a
-browser. Ctrl-C stops it.
+Opens the [browser app](#browser-app) over a directory of results (default
+`dedale-out/`). `--port N` picks the port; `--no-open` prints the address
+without opening a browser. Ctrl-C stops it.
+
+## Browser app
+
+```sh
+dedale view                                       # browse dedale-out/
+dedale run greedy_bot.py random_bot.py --view     # watch a game live
+dedale tournament greedy_bot.py random_bot.py --view
+```
+
+Dedale serves the app itself and opens it in your browser (`xdg-open`, or
+`open` on macOS; `--no-open` only prints the address, `--port N` fixes the
+port). It listens on `127.0.0.1` only, and the printed address carries a
+secret token: other pages and users cannot reach your results or steer a
+game. Nothing to install: the app is built into the binary.
+
+**Runs.** The home page lists every game and tournament under the directory,
+newest first, with bots, result and maze. Type in the filter to keep the
+ones a bot played. A file Dedale cannot read is listed with the reason.
+
+**A game.** Choose a turn and see everything about it:
+
+- the **maze**: walls, points left, collected cells tinted by who took them,
+  and the players (A blue, B orange; a split disc when they share a cell).
+  Hover a cell for its position and the turn its point was taken.
+- the **header**: turn and turn limit, points left, scores, maze code, and
+  the result.
+- the **timeline**: a scrubber, step and play buttons, the playback speed,
+  and a strip of markers per player for every turn that went wrong
+  (illegal move, unreadable answer, error, timeout, not ready, crash, late
+  answer). Click the strip to go there.
+- the **inspector**, per player: the move asked for and applied, the
+  outcome, latency against the move budget, time inside `move()`,
+  position, score, and what the bot logged, marked or raised (with its
+  traceback), plus late or ignored answers. Turn 0 shows the startup
+  (ready in time or not, import and `init()` time, its log and errors);
+  the last turn shows how each bot exited and the end of its stderr. Pick
+  whose marks are drawn on the maze.
+- **heatmaps** under the maze: how often each player stood on each cell, or
+  the order the points were taken in.
+- **charts**: latency and time inside `move()` per turn (log scale, the move
+  budget drawn), and the score of each player over the game. Hover to read
+  a turn's values; click to go to it.
+- the **statistics** of the game.
+
+| Key | |
+|---|---|
+| ← → | Previous and next turn |
+| space | Play or pause |
+| Home, End | First and last turn |
+| `p`, `n` | Previous and next problem |
+
+The address follows the turn shown (`#/game/<file>?turn=N`): bookmark or
+share it.
+
+**A tournament.** The leaderboard and every game with its result; click a
+game to open it, and Back to return.
+
+**Live** (`--view`). Dedale prints the address and waits: nothing runs until
+you press **Start** in the page (it shows the bots, the timings and, for a
+single game, the maze). Then:
+
+- **Pause** and **Resume**, and a **delay** between turns, from any tab.
+  Dedale holds the game between turns only: a bot's clock starts when it is
+  asked to move, so pausing never costs it a timeout. (A bot still
+  computing a late answer keeps computing while paused.)
+- The view **follows** the newest turn. Go back to study an earlier turn
+  and it stays there; **Follow live** catches up again. The inspector,
+  heatmaps and charts update as turns arrive.
+- A tournament shows the leaderboard after each game, the games played (each
+  opens as a replay) and the game being played.
+- A page that loses its connection reconnects by itself and catches up;
+  several tabs can watch at once.
+
+The output, replays and logs are the same as without `--view`. After the
+end Dedale keeps serving the page, so the finished games stay browsable,
+until Ctrl-C.
+
+To script against a live session (start it, pace it, follow its events), see
+[`docs/web.md`](docs/web.md).
 
 ## Analytics
 
