@@ -234,3 +234,12 @@ fn sys_exit_is_a_crash() {
     assert_eq!(record.result.reason, EndReason::Abandoned);
     assert_eq!(record.players[0].exit.as_ref().unwrap().code, Some(7));
 }
+
+/// The README shows the greedy example verbatim, so it cannot go stale
+/// without this test failing (and the example itself is tested above).
+#[test]
+fn the_readme_shows_the_tested_example() {
+    let readme = std::fs::read_to_string(common::repo().join("README.md")).unwrap();
+    let greedy = std::fs::read_to_string(example_bot("greedy_bot")).unwrap();
+    assert!(readme.contains(&format!("```python\n{greedy}```")));
+}
