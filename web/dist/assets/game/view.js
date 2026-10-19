@@ -145,9 +145,13 @@ export class GameView {
         for (const cleanup of this.cleanups)
             cleanup();
     }
-    jump(turn) {
+    /** Stops playback and shows `turn`. */
+    goTo(turn) {
         this.pause();
         this.setTurn(turn);
+    }
+    jump(turn) {
+        this.goTo(turn);
     }
     problem(direction) {
         const target = direction > 0 ? nextProblem(this.starts, this.turn) : previousProblem(this.starts, this.turn);

@@ -206,9 +206,14 @@ export class GameView {
     for (const cleanup of this.cleanups) cleanup();
   }
 
-  private jump(turn: number): void {
+  /** Stops playback and shows `turn`. */
+  goTo(turn: number): void {
     this.pause();
     this.setTurn(turn);
+  }
+
+  private jump(turn: number): void {
+    this.goTo(turn);
   }
 
   private problem(direction: 1 | -1): void {

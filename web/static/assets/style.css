@@ -345,3 +345,32 @@ pre.scroll {
   border-radius: 2px;
   vertical-align: -0.05em;
 }
+
+.charts {
+  margin-top: 1rem;
+}
+
+.charts summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.chart-block {
+  margin-top: 0.4rem;
+}
+
+.chart-title {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.chart {
+  display: block;
+  cursor: crosshair;
+}
+
+.readout {
+  min-height: 1.5em;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
