@@ -13,6 +13,7 @@ publish = false
 
 [workspace.dependencies]
 dedale-core = { path = "crates/dedale-core" }
+proptest = "1.11.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
