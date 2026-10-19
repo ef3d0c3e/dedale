@@ -1,5 +1,7 @@
 //! What a game's result looks like in the terminal.
 
+use std::io::{self, Write};
+
 use dedale_core::game::{EndReason, Seating};
 use dedale_core::record::{GameRecord, StartupOutcome};
 use dedale_core::stats::PlayerStats;
@@ -8,11 +10,15 @@ use crate::render::{Style, format_us};
 
 const LABELS: [char; 2] = ['A', 'B'];
 
-pub(crate) fn print_game(record: &GameRecord, style: Style) {
-    println!("result  {}", describe(record));
-    println!();
-    print!("{}", table(record, style));
-    println!();
+pub(crate) fn print_game(
+    out: &mut impl Write,
+    record: &GameRecord,
+    style: Style,
+) -> io::Result<()> {
+    writeln!(out, "result  {}", describe(record))?;
+    writeln!(out)?;
+    write!(out, "{}", table(record, style))?;
+    writeln!(out)
 }
 
 /// One line: how the game ended and who won.

@@ -122,7 +122,7 @@ pub(crate) fn run(args: &RunArgs) -> CliResult {
         (None, Some(path)) => path.display().to_string(),
         (None, None) => unreachable!("a maze without a code comes from a file"),
     };
-    println!("maze    {maze_name}");
+    writeln!(std::io::stdout().lock(), "maze    {maze_name}")?;
     let seating = match (args.bots.len(), args.swap) {
         (1, _) => Seating::Solo,
         (_, false) => Seating::Duo,
@@ -172,8 +172,9 @@ pub(crate) fn run(args: &RunArgs) -> CliResult {
 
     let path = out.join("replay.json");
     replay::write(&path, &record).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
-    summary::print_game(&record, style);
-    println!("replay  {}", path.display());
+    let mut stdout = std::io::stdout().lock();
+    summary::print_game(&mut stdout, &record, style)?;
+    writeln!(stdout, "replay  {}", path.display())?;
     Ok(())
 }
 

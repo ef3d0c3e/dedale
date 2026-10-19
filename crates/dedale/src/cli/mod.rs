@@ -3,9 +3,10 @@
 mod maze_args;
 mod run;
 mod summary;
+mod viewer;
 
 use std::error::Error;
-use std::io::IsTerminal;
+use std::io::{self, IsTerminal, Write};
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -29,6 +30,8 @@ enum Command {
     Run(run::RunArgs),
     /// Print a maze in the text format (its code goes to stderr).
     Maze(MazeArgs),
+    /// Step through a recorded game, or verify it.
+    Replay(viewer::ReplayArgs),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -62,9 +65,12 @@ pub fn main() -> ExitCode {
     let result = match cli.command {
         Command::Run(args) => run::run(&args),
         Command::Maze(args) => maze(&args),
+        Command::Replay(args) => viewer::run(&args),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
+        // Output piped into something that stopped reading (`| head`).
+        Err(e) if is_broken_pipe(e.as_ref()) => ExitCode::SUCCESS,
         Err(e) if is_interrupted(e.as_ref()) => {
             eprintln!("dedale: interrupted");
             ExitCode::from(130)
@@ -83,12 +89,18 @@ fn maze(args: &MazeArgs) -> CliResult {
     if let Some(code) = code {
         eprintln!("{code}");
     }
-    print!("{maze}");
+    write!(io::stdout().lock(), "{maze}")?;
     Ok(())
 }
 
 fn is_interrupted(error: &(dyn Error + 'static)) -> bool {
     matches!(error.downcast_ref(), Some(MatchError::Interrupted))
+}
+
+fn is_broken_pipe(error: &(dyn Error + 'static)) -> bool {
+    error
+        .downcast_ref::<io::Error>()
+        .is_some_and(|e| e.kind() == io::ErrorKind::BrokenPipe)
 }
 
 /// An error and its sources, `: `-separated.
