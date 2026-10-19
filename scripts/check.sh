@@ -24,15 +24,15 @@ cargo fmt --all --check
 cargo fmt --manifest-path fuzz/Cargo.toml --check
 
 step "clippy"
-cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo clippy --manifest-path fuzz/Cargo.toml --all-targets --locked -- -D warnings
 
 step "tests"
-cargo test --workspace --locked
+cargo test --workspace --all-features --locked
 
 step "stable build"
 if rustup toolchain list | grep -q '^stable'; then
-    rustup run stable cargo check --workspace --all-targets --locked
+    rustup run stable cargo check --workspace --all-targets --all-features --locked
 else
     echo "skipped: no stable toolchain installed"
 fi

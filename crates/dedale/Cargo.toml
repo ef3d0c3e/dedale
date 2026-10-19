@@ -7,9 +7,28 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 publish.workspace = true
+default-run = "dedale"
+
+[features]
+# Builds dedale-fake-bot, the scripted raw-protocol bot the tests drive.
+fake-bot = []
+
+[[bin]]
+name = "dedale"
+path = "src/main.rs"
+
+[[bin]]
+name = "dedale-fake-bot"
+path = "src/bin/dedale-fake-bot.rs"
+required-features = ["fake-bot"]
 
 [dependencies]
 dedale-core.workspace = true
+nix = { version = "0.31.3", default-features = false, features = ["signal"] }
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3.23.0"
 
 [lints]
 workspace = true
