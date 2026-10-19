@@ -1,0 +1,15 @@
+[package]
+name = "dedale"
+description = "Referee for maze bots: runs competitor programs against each other in a symmetric maze"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+dedale-core.workspace = true
+
+[lints]
+workspace = true

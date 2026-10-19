@@ -1,0 +1,17 @@
+[package]
+name = "dedale-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+dedale-core = { path = "../crates/dedale-core" }
+libfuzzer-sys = "0.4"
+
+# Not part of the main workspace: fuzzing needs nightly.
+[workspace]
+members = ["."]
