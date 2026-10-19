@@ -1,0 +1,3 @@
+GET /api/file?path=games%2F001-map-duo%2Freplay.json&token=ab HTTP/1.1
+Host: 127.0.0.1:1
+

@@ -1,0 +1,6 @@
+POST /api/control?token=ab HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+Content-Length: 30
+
+{"paused":true,"delay_ms":100}

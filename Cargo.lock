@@ -225,6 +225,7 @@ dependencies = [
  "ctrlc",
  "dedale-core",
  "nix",
+ "proptest",
  "serde",
  "serde_json",
  "tempfile",

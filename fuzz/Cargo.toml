@@ -9,6 +9,7 @@ publish = false
 cargo-fuzz = true
 
 [dependencies]
+dedale = { path = "../crates/dedale" }
 dedale-core = { path = "../crates/dedale-core" }
 libfuzzer-sys = "0.4"
 
@@ -54,6 +55,13 @@ bench = false
 [[bin]]
 name = "replay_read"
 path = "fuzz_targets/replay_read.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "http_request"
+path = "fuzz_targets/http_request.rs"
 test = false
 doc = false
 bench = false
