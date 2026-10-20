@@ -1,6 +1,6 @@
 // The turn inspector, beside the maze: one panel per player, and whose
 // marks are drawn on the maze (one player's, both, or nobody's).
-import { h, replace } from "../dom.js";
+import { h, pick, replace } from "../dom.js";
 import { inspect, overlays } from "./inspect.js";
 export class Inspector {
     element;
@@ -14,13 +14,21 @@ export class Inspector {
         this.choice = h("select", {
             "aria-label": "Marks drawn on the maze",
             onchange: () => {
-                const value = this.choice.value;
-                this.marksOf = value === "" ? null : value === "both" ? "both" : Number(value);
+                this.marksOf = marksOf(this.choice.value);
                 redraw();
             },
         }, data.players.map((p, i) => h("option", { value: i }, `${i === 0 ? "A" : "B"} ${p.name}'s marks`)), data.players.length > 1 ? h("option", { value: "both" }, "both players' marks") : null, h("option", { value: "" }, "no marks"));
         this.body = h("div", { class: "panels" });
         this.element = h("div", { class: "inspector" }, h("div", { class: "inspector-head" }, this.choice), this.body);
+    }
+    /** Whose marks are drawn, as the menu's value (`0`, `1`, `both`, or `` for none). */
+    get marks() {
+        return this.choice.value;
+    }
+    /** A choice this game does not offer (B's marks in a solo game) is ignored. */
+    set marks(value) {
+        if (pick(this.choice, value))
+            this.marksOf = marksOf(value);
     }
     /** What to draw over the maze at the shown turn. */
     overlays() {
@@ -53,6 +61,9 @@ export class Inspector {
             ]
             : null);
     }
+}
+function marksOf(value) {
+    return value === "" ? null : value === "both" ? "both" : Number(value);
 }
 /** `route: a path through 12 cells`, `targets: 3 cells`. */
 export function describeMark(mark) {

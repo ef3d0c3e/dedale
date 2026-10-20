@@ -362,6 +362,9 @@ single game, the maze). Then:
 - The view **follows** the newest turn. Go back to study an earlier turn
   and it stays there; **Follow live** catches up again. The inspector,
   heatmaps and charts update as turns arrive.
+- What you choose to see (whose marks, the heatmap, the charts, the
+  playback speed) stays from the preview to the game, and from one game of
+  a tournament to the next.
 - A tournament shows the leaderboard after each game, the games played (each
   opens as a replay) and the game being played.
 - A page that loses its connection reconnects by itself and catches up;

@@ -65,6 +65,13 @@ export class Charts {
         this.cleanups.push(() => dark.removeEventListener("change", rebuild));
         this.build();
     }
+    /** Whether the charts are unfolded. */
+    get open() {
+        return this.element.open;
+    }
+    set open(open) {
+        this.element.open = open;
+    }
     /** The game gained turns or ended. */
     update() {
         this.summarise();

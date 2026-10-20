@@ -77,7 +77,7 @@ const TITLES: Record<Kind, string> = {
 let screens = 0;
 
 export class Charts {
-  readonly element: HTMLElement;
+  readonly element: HTMLDetailsElement;
   private readonly data: GameData;
   private readonly onJump: (turn: number) => void;
   private readonly body: HTMLElement;
@@ -110,6 +110,15 @@ export class Charts {
     dark.addEventListener("change", rebuild);
     this.cleanups.push(() => dark.removeEventListener("change", rebuild));
     this.build();
+  }
+
+  /** Whether the charts are unfolded. */
+  get open(): boolean {
+    return this.element.open;
+  }
+
+  set open(open: boolean) {
+    this.element.open = open;
   }
 
   /** The game gained turns or ended. */

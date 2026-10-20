@@ -27,6 +27,13 @@ export function append(parent, children) {
         }
     }
 }
+/** Selects `value` when `select` offers it; whether it does. */
+export function pick(select, value) {
+    const offered = [...select.options].some((option) => option.value === value);
+    if (offered)
+        select.value = value;
+    return offered;
+}
 /** Replaces everything in `parent`. */
 export function replace(parent, ...children) {
     while (parent.firstChild)

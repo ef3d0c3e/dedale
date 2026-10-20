@@ -7,10 +7,23 @@ import { Heatmap } from "./heatmap.ts";
 import { Inspector } from "./inspector.ts";
 import { GameView } from "./view.ts";
 
+/** What the viewer chose to see, which a live page carries from one game's
+ * screen to the next (the preview, then each game). */
+export interface Settings {
+  /** Whose marks are drawn: the marks menu's value. */
+  marks: string;
+  /** The heatmap menu's value. */
+  heatmap: string;
+  charts: boolean;
+  speed: number;
+}
+
 export interface ScreenOptions {
   turn?: number | null;
   /** The shown turn settled (for the address). */
   onTurn?(turn: number): void;
+  /** Choices from an earlier screen; those this game does not offer are left out. */
+  settings?: Settings | undefined;
 }
 
 export class GameScreen {
@@ -41,10 +54,26 @@ export class GameScreen {
     view.side.append(this.inspector.element);
     view.boardColumn.append(this.heatmap.element);
     view.element.append(this.charts.element);
+    if (options.settings) {
+      this.inspector.marks = options.settings.marks;
+      this.heatmap.selected = options.settings.heatmap;
+      this.charts.open = options.settings.charts;
+      view.playbackSpeed = options.settings.speed;
+      view.draw();
+    }
   }
 
   get element(): HTMLElement {
     return this.view.element;
+  }
+
+  get settings(): Settings {
+    return {
+      marks: this.inspector.marks,
+      heatmap: this.heatmap.selected,
+      charts: this.charts.open,
+      speed: this.view.playbackSpeed,
+    };
   }
 
   /** The game gained turns or ended. */

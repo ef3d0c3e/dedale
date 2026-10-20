@@ -1,6 +1,6 @@
 // The heatmap choice under the maze, and its legend.
 
-import { h, replace } from "../dom.ts";
+import { h, pick, replace } from "../dom.ts";
 import { letter } from "../format.ts";
 import type { GameData } from "./data.ts";
 import { type HeatLayer, highest, takenBy, Visits } from "./heat.ts";
@@ -26,6 +26,16 @@ export class Heatmap {
     );
     this.legend = h("span", { class: "legend muted" });
     this.element = h("div", { class: "heatmap" }, this.choice, this.legend);
+  }
+
+  /** The heatmap shown, as the menu's value. */
+  get selected(): string {
+    return this.choice.value;
+  }
+
+  /** A choice this game does not offer is ignored. */
+  set selected(value: string) {
+    pick(this.choice, value);
   }
 
   /** The layer to draw at `turn`, with its legend updated. */

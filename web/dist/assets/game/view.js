@@ -2,7 +2,7 @@
 // markers, keyboard) and the stats table. Works for recorded games and,
 // through `update`, for games being played.
 import { aboutList } from "../about.js";
-import { h, replace } from "../dom.js";
+import { h, pick, replace } from "../dom.js";
 import { describeResult, formatSpread, formatUs, letter, outcomeName, SPREAD_HELP, score, } from "../format.js";
 import { MazeCanvas } from "./canvas.js";
 import { advance, DEFAULT_SPEED, SPEEDS, step } from "./playback.js";
@@ -45,6 +45,7 @@ export class GameView {
     turnLabel;
     playButton;
     strip;
+    speedChoice;
     stats;
     turn = 0;
     speed = DEFAULT_SPEED;
@@ -83,6 +84,7 @@ export class GameView {
                 this.speed = Number(speed.value);
             },
         }, SPEEDS.map((s) => h("option", { value: s, selected: s === DEFAULT_SPEED }, `${s}/s`)));
+        this.speedChoice = speed;
         this.strip = h("canvas", {
             class: "markers",
             height: MARKER_ROW * 2,
@@ -125,6 +127,15 @@ export class GameView {
     }
     get current() {
         return this.turn;
+    }
+    /** Playback speed, in turns per second. */
+    get playbackSpeed() {
+        return this.speed;
+    }
+    /** A speed the menu does not offer is ignored. */
+    set playbackSpeed(speed) {
+        if (pick(this.speedChoice, String(speed)))
+            this.speed = speed;
     }
     /** The game gained turns, or ended. */
     update() {

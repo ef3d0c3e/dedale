@@ -3,7 +3,7 @@
 // through `update`, for games being played.
 
 import { aboutList } from "../about.ts";
-import { h, replace } from "../dom.ts";
+import { h, pick, replace } from "../dom.ts";
 import {
   describeResult,
   formatSpread,
@@ -80,6 +80,7 @@ export class GameView {
   private readonly turnLabel: HTMLElement;
   private readonly playButton: HTMLButtonElement;
   private readonly strip: HTMLCanvasElement;
+  private readonly speedChoice: HTMLSelectElement;
   private readonly stats: HTMLElement;
   private turn = 0;
   private speed = DEFAULT_SPEED;
@@ -123,6 +124,7 @@ export class GameView {
       },
       SPEEDS.map((s) => h("option", { value: s, selected: s === DEFAULT_SPEED }, `${s}/s`)),
     );
+    this.speedChoice = speed;
     this.strip = h("canvas", {
       class: "markers",
       height: MARKER_ROW * 2,
@@ -190,6 +192,16 @@ export class GameView {
 
   get current(): number {
     return this.turn;
+  }
+
+  /** Playback speed, in turns per second. */
+  get playbackSpeed(): number {
+    return this.speed;
+  }
+
+  /** A speed the menu does not offer is ignored. */
+  set playbackSpeed(speed: number) {
+    if (pick(this.speedChoice, String(speed))) this.speed = speed;
   }
 
   /** The game gained turns, or ended. */

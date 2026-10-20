@@ -251,6 +251,12 @@ test("a live run: started, paced and assembled by the page", async () => {
     await page.waitFor("document.querySelector('.phase')?.textContent === 'waiting'");
     await page.waitFor("document.querySelector('canvas.maze')?.style.width === '200px'");
     assert.deepEqual(dedale.children(), [], "no bot before Start");
+    // What the viewer picks on the preview stays once the game is on.
+    const chosen = (label: string) =>
+      page.eval<string>(`document.querySelector('select[aria-label="${label}"]').value`);
+    await page.choose("Marks drawn on the maze", "both");
+    await page.choose("Heatmap", "order");
+    await page.choose("Speed", "25");
 
     await page.choose("Delay between turns", "25");
     await page.waitFor(
@@ -261,6 +267,9 @@ test("a live run: started, paced and assembled by the page", async () => {
     await page.waitFor(
       "Number(document.querySelector('.turn-label')?.textContent.split(' ')[1]) >= 3",
     );
+    assert.equal(await chosen("Marks drawn on the maze"), "both");
+    assert.equal(await chosen("Heatmap"), "order");
+    assert.equal(await chosen("Speed"), "25");
 
     await press(page, "Pause");
     await page.waitFor("document.querySelector('.live-controls').textContent.includes('paused')");

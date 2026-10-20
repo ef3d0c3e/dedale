@@ -1,7 +1,7 @@
 // The turn inspector, beside the maze: one panel per player, and whose
 // marks are drawn on the maze (one player's, both, or nobody's).
 
-import { h, replace } from "../dom.ts";
+import { h, pick, replace } from "../dom.ts";
 import type { Mark } from "../types.ts";
 import type { Overlay } from "./canvas.ts";
 import type { GameData } from "./data.ts";
@@ -22,8 +22,7 @@ export class Inspector {
       {
         "aria-label": "Marks drawn on the maze",
         onchange: () => {
-          const value = this.choice.value;
-          this.marksOf = value === "" ? null : value === "both" ? "both" : Number(value);
+          this.marksOf = marksOf(this.choice.value);
           redraw();
         },
       },
@@ -40,6 +39,16 @@ export class Inspector {
       h("div", { class: "inspector-head" }, this.choice),
       this.body,
     );
+  }
+
+  /** Whose marks are drawn, as the menu's value (`0`, `1`, `both`, or `` for none). */
+  get marks(): string {
+    return this.choice.value;
+  }
+
+  /** A choice this game does not offer (B's marks in a solo game) is ignored. */
+  set marks(value: string) {
+    if (pick(this.choice, value)) this.marksOf = marksOf(value);
   }
 
   /** What to draw over the maze at the shown turn. */
@@ -116,6 +125,10 @@ export class Inspector {
         : null,
     );
   }
+}
+
+function marksOf(value: string): MarksOf {
+  return value === "" ? null : value === "both" ? "both" : Number(value);
 }
 
 /** `route: a path through 12 cells`, `targets: 3 cells`. */

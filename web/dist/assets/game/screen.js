@@ -31,9 +31,24 @@ export class GameScreen {
         view.side.append(this.inspector.element);
         view.boardColumn.append(this.heatmap.element);
         view.element.append(this.charts.element);
+        if (options.settings) {
+            this.inspector.marks = options.settings.marks;
+            this.heatmap.selected = options.settings.heatmap;
+            this.charts.open = options.settings.charts;
+            view.playbackSpeed = options.settings.speed;
+            view.draw();
+        }
     }
     get element() {
         return this.view.element;
+    }
+    get settings() {
+        return {
+            marks: this.inspector.marks,
+            heatmap: this.heatmap.selected,
+            charts: this.charts.open,
+            speed: this.view.playbackSpeed,
+        };
     }
     /** The game gained turns or ended. */
     update() {

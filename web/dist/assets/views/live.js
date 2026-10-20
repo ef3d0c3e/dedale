@@ -81,10 +81,14 @@ export function live(container, ctx) {
     let lastPhase = controller.state.session?.phase;
     let disposed = false;
     const show = (game, data, streamed) => {
+        // What the viewer chose to see stays as the screen is rebuilt: on Start,
+        // for each game of a tournament, and for a finished game's replay.
+        const settings = shown?.screen.settings;
         shown?.screen.dispose();
         const screen = new GameScreen(data, {
             turn: controller.following ? data.model.length : 0,
             onTurn: (turn) => controller.userMoved(turn, data.model.length),
+            settings,
         });
         shown = { game, data, screen, streamed };
         replace(gameBox, screen.element);

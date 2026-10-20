@@ -1,5 +1,5 @@
 // The heatmap choice under the maze, and its legend.
-import { h, replace } from "../dom.js";
+import { h, pick, replace } from "../dom.js";
 import { letter } from "../format.js";
 import { highest, takenBy, Visits } from "./heat.js";
 export class Heatmap {
@@ -14,6 +14,14 @@ export class Heatmap {
         this.choice = h("select", { "aria-label": "Heatmap", onchange: redraw }, h("option", { value: "" }, "no heatmap"), data.players.map((p, i) => h("option", { value: `visits:${i}` }, `${letter(i)} ${p.name}: cells visited`)), h("option", { value: "order" }, "points: order taken"));
         this.legend = h("span", { class: "legend muted" });
         this.element = h("div", { class: "heatmap" }, this.choice, this.legend);
+    }
+    /** The heatmap shown, as the menu's value. */
+    get selected() {
+        return this.choice.value;
+    }
+    /** A choice this game does not offer is ignored. */
+    set selected(value) {
+        pick(this.choice, value);
     }
     /** The layer to draw at `turn`, with its legend updated. */
     layer(turn) {
