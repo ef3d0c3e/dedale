@@ -4,7 +4,15 @@
 
 import { aboutList } from "../about.ts";
 import { h, replace } from "../dom.ts";
-import { describeResult, formatUs, letter, outcomeName, score } from "../format.ts";
+import {
+  describeResult,
+  formatSpread,
+  formatUs,
+  letter,
+  outcomeName,
+  SPREAD_HELP,
+  score,
+} from "../format.ts";
 import type { Outcome } from "../types.ts";
 import { MazeCanvas, type Overlay } from "./canvas.ts";
 import type { GameData } from "./data.ts";
@@ -381,7 +389,6 @@ export class GameView {
     };
     const rows = this.data.players.map((p, i) => {
       const s = end.stats[i];
-      const latency = s?.latency_us;
       return h(
         "tr",
         {},
@@ -391,14 +398,8 @@ export class GameView {
         h("td", { class: "num" }, s?.stays ?? "-"),
         h("td", { class: "num" }, formatUs(s?.startup_us)),
         h("td", { class: "num" }, formatUs(s?.init_us)),
-        h(
-          "td",
-          { class: "num" },
-          latency
-            ? `${formatUs(latency.p50)} / ${formatUs(latency.p95)} / ${formatUs(latency.max)}`
-            : "-",
-        ),
-        h("td", { class: "num" }, formatUs(s?.think_us?.p50)),
+        h("td", { class: "num" }, formatSpread(s?.latency_us)),
+        h("td", { class: "num" }, formatSpread(s?.think_us)),
         h("td", {}, problems(i)),
       );
     });
@@ -420,10 +421,10 @@ export class GameView {
               "stays",
               "startup",
               "init",
-              "latency p50 / p95 / max",
-              "think p50",
+              "latency avg / 5% / 1%",
+              "move() avg / 5% / 1%",
               "problems",
-            ].map((t) => h("th", {}, t)),
+            ].map((t) => h("th", t.endsWith("avg / 5% / 1%") ? { title: SPREAD_HELP } : {}, t)),
           ),
         ),
         h("tbody", {}, rows),

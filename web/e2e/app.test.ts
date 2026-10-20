@@ -116,9 +116,21 @@ test("browsing results: runs, a game, a tournament", async () => {
     assert.equal(await page.eval<boolean>(`${scanner}.hidden`), false);
     assert.equal(await page.text(".charts .scanner-turn"), "turn 12");
     const atEnd = await page.eval<number>(`parseFloat(${scanner}.style.left)`);
+    // The latency legend: the turn shown, then avg / 5% / 1% over the game,
+    // as the statistics table has them.
+    const legend = (row: number) =>
+      page.eval<string[]>(
+        `[...document.querySelector(".charts .u-legend").rows[${row}].cells].map((c) => c.textContent)`,
+      );
+    assert.deepEqual((await legend(0)).slice(1), ["turn 12", "avg", "5%", "1%"]);
+    assert.equal(
+      (await legend(1)).slice(2).join(" / "),
+      await page.eval<string>(`document.querySelector(".stats tbody tr").cells[6].textContent`),
+    );
     await page.press("Home", "Home", 36);
     await page.waitFor(`${head}.includes("turn 0 / 12")`);
     assert.equal(await page.eval<boolean>(`${scanner}.hidden`), true, "no scanner before turn 1");
+    assert.equal((await legend(0))[1], "turn");
     // A click on a chart shows the turn under it.
     await page.eval(`(() => {
       const over = document.querySelector(".charts .u-over");

@@ -441,6 +441,39 @@ pre.scroll {
   display: inline-block;
 }
 
+/* Durations' legends are tables: the turn shown, then avg / 5% / 1%. */
+.charts .u-legend:not(.u-inline) {
+  margin: 0.3rem 0 0;
+}
+
+.charts .u-legend:not(.u-inline) th {
+  padding: 1px 0 1px 1.2em;
+  border: 0;
+}
+
+.charts .u-legend:not(.u-inline) tbody th {
+  padding-left: 0;
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.charts .u-legend:not(.u-inline) thead th {
+  color: var(--muted);
+  font-weight: 500;
+  text-align: right;
+}
+
+.charts .u-legend:not(.u-inline) thead th[title] {
+  cursor: help;
+}
+
+.charts .u-legend:not(.u-inline) .u-value {
+  display: table-cell;
+  padding: 1px 0 1px 1.2em;
+  border: 0;
+  text-align: right;
+}
+
 .charts .u-cursor-x {
   border-right-color: var(--muted);
 }

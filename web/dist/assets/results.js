@@ -1,5 +1,5 @@
 // What the run browser and the tournament view list, as plain strings.
-import { describeResult, formatUs, letter, score } from "./format.js";
+import { describeResult, formatSpread, letter, score } from "./format.js";
 /** Newest first, then by path. */
 export function sortEntries(entries) {
     return [...entries].sort((a, b) => b.modified - a.modified || a.path.localeCompare(b.path));
@@ -58,7 +58,7 @@ export function replayPath(tournamentPath, replay) {
 }
 /** The leaderboard of a mode, as the terminal prints it. */
 export function leaderboard(mode, standings) {
-    const latency = (s) => s.latency_us ? `${formatUs(s.latency_us.p50)} / ${formatUs(s.latency_us.p95)}` : "-";
+    const latency = (s) => formatSpread(s.latency_us);
     if (mode === "duo") {
         return {
             headers: [
@@ -70,7 +70,7 @@ export function leaderboard(mode, standings) {
                 "lost",
                 "score",
                 "failures",
-                "latency p50 / p95",
+                "latency avg / 5% / 1%",
             ],
             numeric: [0, 2, 3, 4, 5, 6, 7, 8],
             rows: standings.map((s) => [
@@ -87,7 +87,7 @@ export function leaderboard(mode, standings) {
         };
     }
     return {
-        headers: ["rank", "bot", "cleared", "turns", "score", "failures", "latency p50 / p95"],
+        headers: ["rank", "bot", "cleared", "turns", "score", "failures", "latency avg / 5% / 1%"],
         numeric: [0, 2, 3, 4, 5, 6],
         rows: standings.map((s) => [
             String(s.rank),

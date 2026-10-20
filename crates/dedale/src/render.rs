@@ -9,6 +9,7 @@ use dedale_core::game::{Outcome, Snapshot};
 use dedale_core::grid::{Cell, Move, Pos};
 use dedale_core::protocol::{Mark, MarkColor, MarkKind};
 use dedale_core::record::TurnRecord;
+use dedale_core::stats::Summary;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Style {
@@ -165,6 +166,19 @@ pub fn format_us(us: u64, style: Style) -> String {
     }
 }
 
+/// `avg / 5% / 1%`: the mean, then the time the slowest 5% and 1% take at
+/// least (the 95th and 99th percentiles).
+#[must_use]
+pub fn format_spread(summary: &Summary, style: Style) -> String {
+    let us = |v| format_us(v, style);
+    format!(
+        "{} / {} / {}",
+        us(summary.mean),
+        us(summary.p95),
+        us(summary.p99)
+    )
+}
+
 #[must_use]
 pub fn outcome_name(outcome: Outcome) -> &'static str {
     match outcome {
@@ -180,12 +194,13 @@ pub fn outcome_name(outcome: Outcome) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{Frame, Style, format_us, render};
+    use super::{Frame, Style, format_spread, format_us, render};
     use dedale_core::game::{Game, Input, Outcome, Seating};
     use dedale_core::grid::{Move, Pos};
     use dedale_core::maze::Maze;
     use dedale_core::protocol::{Mark, MarkColor, MarkKind};
     use dedale_core::record::{PlayerTurnRecord, TurnRecord};
+    use dedale_core::stats::Summary;
 
     const RING: &str = "_....\n.###.\n.###.\n.###.\n...._\n";
 
@@ -373,5 +388,10 @@ B random     3.5  up     illegal    850 µs
             color: false,
         };
         assert_eq!(format_us(5, ascii), "5 us");
+        let summary = Summary::of((1..=100).map(|ms| ms * 1_000).collect()).unwrap();
+        assert_eq!(
+            format_spread(&summary, style),
+            "50.5 ms / 95.0 ms / 99.0 ms"
+        );
     }
 }

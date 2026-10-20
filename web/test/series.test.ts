@@ -9,6 +9,7 @@ import {
   powersOfTen,
   problems,
   series,
+  spread,
 } from "../src/game/series.ts";
 import { parseReplay } from "../src/validate.ts";
 import { fixture } from "./load.ts";
@@ -80,4 +81,25 @@ test("duration ticks read without decimals", () => {
     "100 ms",
     "1 s",
   ]);
+});
+
+test("spreads are computed as the game's statistics are", () => {
+  const range = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
+  assert.deepEqual(spread(range(100)), { mean: 50, p95: 95, p99: 99 });
+  assert.deepEqual(spread(range(20).reverse()), { mean: 10, p95: 19, p99: 20 });
+  assert.deepEqual(spread([10, null, 2]), { mean: 6, p95: 10, p99: 10 });
+  assert.deepEqual(spread([7]), { mean: 7, p95: 7, p99: 7 });
+  assert.equal(spread([null, null]), undefined);
+  assert.equal(spread([]), undefined);
+  for (const metric of ["latency_us", "think_us"] as const) {
+    for (const [player, stats] of record.stats.entries()) {
+      const stored = stats[metric];
+      const { mean, p95, p99 } = stored ?? {};
+      assert.deepEqual(
+        spread(series(record.turns, player, metric)),
+        stored ? { mean, p95, p99 } : undefined,
+        `${metric} of player ${player}`,
+      );
+    }
+  }
 });

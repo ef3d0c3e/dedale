@@ -1,4 +1,4 @@
-// Values per turn for the charts, and how to fit them on screen.
+// Values per turn for the charts, their spread, and how to fit them on screen.
 
 import type { TurnRecord } from "../types.ts";
 
@@ -45,6 +45,30 @@ export function pointsLeft(total: number, turns: readonly TurnRecord[]): number[
     left -= turn.collected.length;
     return left;
   });
+}
+
+/** Average and slowest replies of some durations. */
+export interface Spread {
+  /** Rounded down. */
+  mean: number;
+  /** The slowest 5% take at least this long. */
+  p95: number;
+  /** The slowest 1% take at least this long. */
+  p99: number;
+}
+
+/**
+ * The spread of the values that are there, computed as in the game's
+ * statistics (nearest-rank percentiles); `undefined` without any.
+ */
+export function spread(values: readonly (number | null)[]): Spread | undefined {
+  const sorted = values.filter((v): v is number => v !== null).sort((a, b) => a - b);
+  const n = sorted.length;
+  if (n === 0) return undefined;
+  const sum = sorted.reduce((total, v) => total + v, 0);
+  // Rank ceil(p·n/100), 1-based.
+  const rank = (p: number): number => sorted[Math.max(1, Math.ceil((p * n) / 100)) - 1] ?? 0;
+  return { mean: Math.floor(sum / n), p95: rank(95), p99: rank(99) };
 }
 
 /** Powers of ten from `min` to `max`: the lines of a logarithmic axis. */

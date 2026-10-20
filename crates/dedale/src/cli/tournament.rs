@@ -25,7 +25,7 @@ use super::{CliResult, ColorChoice, MazeArgs, timestamp};
 use crate::bot::{BotSpec, abouts};
 use crate::python::PythonRuntime;
 use crate::referee::{Entrant, GameStart, Observer};
-use crate::render::{Style, format_us};
+use crate::render::{Style, format_spread};
 use crate::tournament::{
     BotInfo, GameEntry, GamePlan, MazeSource, Mode, Standing, TOURNAMENT_FORMAT,
     TournamentObserver, TournamentReport, game_dir, play, schedule, standings,
@@ -354,10 +354,8 @@ fn entry(plan: &GamePlan, record: &GameRecord, files: &[String]) -> GameEntry {
 /// With an author column when a bot gives one.
 fn leaderboard_table(mode: Mode, standings: &[Standing], bots: &[BotInfo], style: Style) -> String {
     let latency = |s: &Standing| {
-        s.latency_us.map_or_else(
-            || "-".to_owned(),
-            |l| format!("{} / {}", format_us(l.p50, style), format_us(l.p95, style)),
-        )
+        s.latency_us
+            .map_or_else(|| "-".to_owned(), |l| format_spread(&l, style))
     };
     let total = |half: u64| score(u32::try_from(half).unwrap_or(u32::MAX));
     let (mut header, right): (Vec<&str>, &[usize]) = match mode {
@@ -371,7 +369,7 @@ fn leaderboard_table(mode: Mode, standings: &[Standing], bots: &[BotInfo], style
                 "lost",
                 "score",
                 "failures",
-                "latency p50 / p95",
+                "latency avg / 5% / 1%",
             ],
             &[2, 3, 4, 5, 6, 7],
         ),
@@ -383,7 +381,7 @@ fn leaderboard_table(mode: Mode, standings: &[Standing], bots: &[BotInfo], style
                 "turns",
                 "score",
                 "failures",
-                "latency p50 / p95",
+                "latency avg / 5% / 1%",
             ],
             &[2, 3, 4, 5],
         ),

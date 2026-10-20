@@ -201,7 +201,9 @@ Plays one game. The maze's **code** is printed first: pass it back with
 | `--sandbox` | Run the bots in a [sandbox](#running-bots-you-did-not-write), with `--memory-mib N` and `--processes N` |
 
 At the end it prints the result and, per bot, the score, steps, startup time,
-latency percentiles and any problems (illegal moves, timeouts, errors...).
+latency and any problems (illegal moves, timeouts, errors...). Durations read
+`avg / 5% / 1%`: the average, then how long the slowest 5% and the slowest 1%
+of replies took at least (the 95th and 99th percentiles).
 Ctrl-C stops the game and every bot.
 
 A maze code reads `ded2-<W>x<H>-l<loops>-p<points>-<seed>`: generator
@@ -325,10 +327,12 @@ ones a bot played. A file Dedale cannot read is listed with the reason.
   budget dashed, problems as red dots), and each player's score with the
   points left. A scanner marks the turn shown on every chart and follows it
   as you step, play or seek; the legends read that turn's values, or the
-  turn under the pointer. Hover any chart to see every chart's cursor, drag
-  across one to zoom them all on those turns, double-click to see the whole
-  game again, and click to go to a turn.
-- the **statistics** of the game.
+  turn under the pointer, and for durations their avg / 5% / 1% over the
+  turns in view. Hover any chart to see every chart's cursor, drag across
+  one to zoom them all on those turns (and their avg / 5% / 1% on them),
+  double-click to see the whole game again, and click to go to a turn.
+- the **statistics** of the game: latency and time in `move()` as
+  avg / 5% / 1%.
 
 | Key | |
 |---|---|

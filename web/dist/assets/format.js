@@ -39,3 +39,9 @@ export function describeResult(result, seating, names) {
     const winner = result.winner;
     return `${ending}: ${letter(winner)} ${names[winner] ?? ""} wins, ${scores[winner]} to ${scores[1 - winner]}`;
 }
+/** Durations as `avg / 5% / 1%`: the mean and the 95th and 99th percentiles. */
+export function formatSpread(s) {
+    return s ? `${formatUs(s.mean)} / ${formatUs(s.p95)} / ${formatUs(s.p99)}` : "-";
+}
+/** What `avg / 5% / 1%` means, for a header's tooltip. */
+export const SPREAD_HELP = "average, then the time the slowest 5% and the slowest 1% take at least (95th and 99th percentiles)";

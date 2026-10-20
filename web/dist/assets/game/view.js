@@ -3,7 +3,7 @@
 // through `update`, for games being played.
 import { aboutList } from "../about.js";
 import { h, replace } from "../dom.js";
-import { describeResult, formatUs, letter, outcomeName, score } from "../format.js";
+import { describeResult, formatSpread, formatUs, letter, outcomeName, SPREAD_HELP, score, } from "../format.js";
 import { MazeCanvas } from "./canvas.js";
 import { advance, DEFAULT_SPEED, SPEEDS, step } from "./playback.js";
 import { markers, nextProblem, previousProblem, problemStarts, } from "./timeline.js";
@@ -297,10 +297,7 @@ export class GameView {
         };
         const rows = this.data.players.map((p, i) => {
             const s = end.stats[i];
-            const latency = s?.latency_us;
-            return h("tr", {}, h("td", {}, h("span", { class: `chip player-${i}` }, h("b", {}, letter(i)), ` ${p.name}`)), h("td", { class: "num" }, score(end.result.half_points[i] ?? 0)), h("td", { class: "num" }, s?.steps ?? "-"), h("td", { class: "num" }, s?.stays ?? "-"), h("td", { class: "num" }, formatUs(s?.startup_us)), h("td", { class: "num" }, formatUs(s?.init_us)), h("td", { class: "num" }, latency
-                ? `${formatUs(latency.p50)} / ${formatUs(latency.p95)} / ${formatUs(latency.max)}`
-                : "-"), h("td", { class: "num" }, formatUs(s?.think_us?.p50)), h("td", {}, problems(i)));
+            return h("tr", {}, h("td", {}, h("span", { class: `chip player-${i}` }, h("b", {}, letter(i)), ` ${p.name}`)), h("td", { class: "num" }, score(end.result.half_points[i] ?? 0)), h("td", { class: "num" }, s?.steps ?? "-"), h("td", { class: "num" }, s?.stays ?? "-"), h("td", { class: "num" }, formatUs(s?.startup_us)), h("td", { class: "num" }, formatUs(s?.init_us)), h("td", { class: "num" }, formatSpread(s?.latency_us)), h("td", { class: "num" }, formatSpread(s?.think_us)), h("td", {}, problems(i)));
         });
         replace(this.stats, h("table", {}, h("thead", {}, h("tr", {}, [
             "player",
@@ -309,9 +306,9 @@ export class GameView {
             "stays",
             "startup",
             "init",
-            "latency p50 / p95 / max",
-            "think p50",
+            "latency avg / 5% / 1%",
+            "move() avg / 5% / 1%",
             "problems",
-        ].map((t) => h("th", {}, t)))), h("tbody", {}, rows)));
+        ].map((t) => h("th", t.endsWith("avg / 5% / 1%") ? { title: SPREAD_HELP } : {}, t)))), h("tbody", {}, rows)));
     }
 }

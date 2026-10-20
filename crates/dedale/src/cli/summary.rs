@@ -6,7 +6,7 @@ use dedale_core::game::{EndReason, Seating};
 use dedale_core::record::{GameRecord, StartupOutcome};
 use dedale_core::stats::PlayerStats;
 
-use crate::render::{Style, format_us};
+use crate::render::{Style, format_spread, format_us};
 
 const LABELS: [char; 2] = ['A', 'B'];
 
@@ -64,16 +64,15 @@ fn table(record: &GameRecord, style: Style) -> String {
         "score",
         "steps",
         "startup",
-        "latency p50 / p95 / max",
+        "latency avg / 5% / 1%",
         "problems",
     ]);
     let dash = || "-".to_owned();
     let mut rows = vec![header.into_iter().map(str::to_owned).collect::<Vec<_>>()];
     for (i, (player, stats)) in record.players.iter().zip(&record.stats).enumerate() {
-        let latency = stats.latency_us.map_or_else(dash, |s| {
-            let us = |v| format_us(v, style);
-            format!("{} / {} / {}", us(s.p50), us(s.p95), us(s.max))
-        });
+        let latency = stats
+            .latency_us
+            .map_or_else(dash, |s| format_spread(&s, style));
         let problems = problems(record, i, stats);
         let mut row = vec![
             LABELS.get(i).map_or_else(String::new, char::to_string),

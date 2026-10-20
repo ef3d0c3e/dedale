@@ -1,4 +1,4 @@
-// Values per turn for the charts, and how to fit them on screen.
+// Values per turn for the charts, their spread, and how to fit them on screen.
 /** One value per turn (turn `i + 1` at index `i`); `null` when there was none. */
 export function series(turns, player, metric) {
     return turns.map((turn) => turn.players[player]?.[metric] ?? null);
@@ -28,6 +28,20 @@ export function pointsLeft(total, turns) {
         left -= turn.collected.length;
         return left;
     });
+}
+/**
+ * The spread of the values that are there, computed as in the game's
+ * statistics (nearest-rank percentiles); `undefined` without any.
+ */
+export function spread(values) {
+    const sorted = values.filter((v) => v !== null).sort((a, b) => a - b);
+    const n = sorted.length;
+    if (n === 0)
+        return undefined;
+    const sum = sorted.reduce((total, v) => total + v, 0);
+    // Rank ceil(p·n/100), 1-based.
+    const rank = (p) => sorted[Math.max(1, Math.ceil((p * n) / 100)) - 1] ?? 0;
+    return { mean: Math.floor(sum / n), p95: rank(95), p99: rank(99) };
 }
 /** Powers of ten from `min` to `max`: the lines of a logarithmic axis. */
 export function powersOfTen(min, max) {
