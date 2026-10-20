@@ -35,7 +35,8 @@
               "about": {
                 "author": "Ada",
                 "description": "Laps the maze, clockwise.",
-                "name": "lap"
+                "name": "lap",
+                "version": 2
               },
               "name": "lap",
               "path": "fake:lap",
@@ -48,7 +49,8 @@
               "about": {
                 "author": null,
                 "description": null,
-                "name": null
+                "name": null,
+                "version": null
               },
               "name": "flaky",
               "path": "fake:flaky",
@@ -90,7 +92,8 @@
           "about": {
             "author": "Ada",
             "description": "Laps the maze, clockwise.",
-            "name": "lap"
+            "name": "lap",
+            "version": 2
           },
           "name": "lap",
           "path": "fake:lap",
@@ -103,7 +106,8 @@
           "about": {
             "author": null,
             "description": null,
-            "name": null
+            "name": null,
+            "version": null
           },
           "name": "flaky",
           "path": "fake:flaky",
@@ -789,7 +793,8 @@
           "about": {
             "author": "Ada",
             "description": "Laps the maze, clockwise.",
-            "name": "lap"
+            "name": "lap",
+            "version": 2
           },
           "exit": {
             "code": 0,
@@ -816,7 +821,8 @@
           "about": {
             "author": null,
             "description": null,
-            "name": null
+            "name": null,
+            "version": null
           },
           "exit": {
             "code": 0,

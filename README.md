@@ -136,6 +136,7 @@ from dedale import Move
 NAME = "Greedy"
 AUTHOR = "Dedale examples"
 DESCRIPTION = "Walks to the nearest point, breadth-first."
+VERSION = 1
 
 # Moves available from every open cell, filled by init().
 neighbors: dict[tuple[int, int], list[tuple[Move, tuple[int, int]]]] = {}
@@ -176,11 +177,12 @@ def path_to(cell, parent):
     return path[::-1]
 ```
 
-`NAME`, `AUTHOR` and `DESCRIPTION` say who the bot is. They are optional,
-and must be plain strings: Dedale reads them from the file without running
-it. The player is then called by its `NAME` rather than its file name, its
-author shows in the terminal's tables, and both author and description in
-the replay files and the browser app.
+`NAME`, `AUTHOR` and `DESCRIPTION` say who the bot is, and `VERSION` which
+version of it plays: a whole number from 1, raised whenever the bot
+changes. They are optional, and must be plain literals: Dedale reads them
+from the file without running it. The player is then called by its `NAME`
+rather than its file name (`Greedy v1` in tables), its author shows in the
+terminal's tables, and all of them in the replay files and the browser app.
 
 What the `dedale` module offers (full reference in
 [`bindings/python/README.md`](bindings/python/README.md)):

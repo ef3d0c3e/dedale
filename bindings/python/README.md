@@ -16,6 +16,7 @@ from dedale import Move
 NAME = "Wall"  # optional: who the bot is
 AUTHOR = "Ada"
 DESCRIPTION = "Never moves."
+VERSION = 1
 
 def init():
     """Optional: runs once, within the startup budget."""
@@ -34,7 +35,7 @@ state is updated in place before every `move()`: references to `dedale.me` or
 
 ### Who the bot is
 
-Three optional globals introduce the bot in leaderboards and the browser
+Four optional globals introduce the bot in leaderboards and the browser
 app:
 
 | | |
@@ -42,12 +43,14 @@ app:
 | `NAME` | What the player is called, instead of its file name |
 | `AUTHOR` | Who wrote it |
 | `DESCRIPTION` | What it does, in a sentence or two |
+| `VERSION` | Which version plays: a whole number from 1, raised whenever the bot changes (`Wall v2` in tables) |
 
 Dedale reads them from the bot's file without running it, so they must be
-plain string literals assigned at the top level (`NAME = "Wall"`; adjacent
-literals in parentheses join as usual). Anything else, such as a computed
-value or an assignment inside an `if`, is ignored, with a note in the bot's
-stderr log. Dedale keeps them on one line: whitespace and control characters
+literals assigned at the top level: strings for the first three
+(`NAME = "Wall"`; adjacent literals in parentheses join as usual), an
+integer from 1 to 2³²−1 for `VERSION`. Anything else, such as a computed
+value, `True`, or an assignment inside an `if`, is ignored, with a note in
+the bot's stderr log. Dedale keeps them on one line: whitespace and control characters
 become single spaces, `NAME` and `AUTHOR` are cut at 64 bytes and
 `DESCRIPTION` at 1 KiB.
 

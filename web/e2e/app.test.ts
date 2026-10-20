@@ -104,7 +104,7 @@ test("browsing results: runs, a game, a tournament", async () => {
     assert.match(await page.eval<string>(head), /turn 0 \/ 12/);
     // What the bots say about themselves: only lap says more than its name.
     assert.equal(await page.eval<number>("document.querySelectorAll('ul.about li').length"), 2);
-    assert.match(await page.text("ul.about"), /A lap by Ada\s*Laps the maze, clockwise\./);
+    assert.match(await page.text("ul.about"), /A lap v2 by Ada\s*Laps the maze, clockwise\./);
     await page.press("ArrowRight", "ArrowRight", 39);
     await page.waitFor(`${head}.includes("turn 1 / 12")`);
     assert.match(await page.eval<string>("location.hash"), /\?turn=1$/);
@@ -202,7 +202,7 @@ test("browsing results: runs, a game, a tournament", async () => {
     // A tournament, one of its games, and back.
     await page.goto(`${dedale.url}#/tournament/cup/tournament.json`);
     await page.waitFor("document.querySelectorAll('main table').length === 2");
-    assert.match(await page.text("ul.about"), /lap by Ada/);
+    assert.match(await page.text("ul.about"), /lap v2 by Ada/);
     assert.equal(
       await page.eval<number>("document.querySelectorAll('main table')[0].tBodies[0].rows.length"),
       2,

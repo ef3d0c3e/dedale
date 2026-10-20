@@ -387,6 +387,10 @@ fn leaderboard_table(mode: Mode, standings: &[Standing], bots: &[BotInfo], style
         ),
     };
     let authors = bots.iter().any(|b| b.about.author.is_some());
+    let name = |s: &Standing| {
+        bots.get(s.bot)
+            .map_or_else(|| s.name.clone(), |b| b.about.versioned(&s.name))
+    };
     let author = |s: &Standing| {
         let about = bots.get(s.bot).map(|b| &b.about);
         about
@@ -401,7 +405,7 @@ fn leaderboard_table(mode: Mode, standings: &[Standing], bots: &[BotInfo], style
         let mut row = match mode {
             Mode::Duo => vec![
                 s.rank.to_string(),
-                s.name.clone(),
+                name(s),
                 s.match_points.to_string(),
                 s.wins.to_string(),
                 s.draws.to_string(),
@@ -412,7 +416,7 @@ fn leaderboard_table(mode: Mode, standings: &[Standing], bots: &[BotInfo], style
             ],
             Mode::Solo => vec![
                 s.rank.to_string(),
-                s.name.clone(),
+                name(s),
                 format!("{}/{}", s.cleared, s.games),
                 s.turns_to_clear.to_string(),
                 total(s.half_points),

@@ -17,7 +17,8 @@ fn python_bots_are_read_without_running_them() {
     let dir = tempfile::tempdir().unwrap();
     let marker = dir.path().join("ran");
     let bot = dir.path().join("bot.py");
-    let source = format!("NAME = \"Wall\\x1b[2J\"\nAUTHOR = 'Ada'\nopen({marker:?}, 'w')\n");
+    let source =
+        format!("NAME = \"Wall\\x1b[2J\"\nAUTHOR = 'Ada'\nVERSION = 4\nopen({marker:?}, 'w')\n");
     fs::write(&bot, source).unwrap();
     let runtime = PythonRuntime::extract().unwrap();
     let about = BotSpec::from_path(&bot).about(&runtime.launcher(python()), WAIT);
@@ -26,6 +27,7 @@ fn python_bots_are_read_without_running_them() {
         name: Some("Wall [2J".to_owned()),
         author: Some("Ada".to_owned()),
         description: None,
+        version: Some(4),
     };
     assert_eq!(about, expected);
     assert!(!marker.exists());
@@ -46,6 +48,7 @@ fn example_bots_say_who_they_are() {
         assert!(about.name.is_some(), "{name}");
         assert_eq!(about.author.as_deref(), Some("Dedale examples"), "{name}");
         assert!(about.description.is_some(), "{name}");
+        assert_eq!(about.version, Some(1), "{name}");
     }
 }
 

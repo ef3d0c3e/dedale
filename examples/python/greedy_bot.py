@@ -11,6 +11,7 @@ from dedale import Move
 NAME = "Greedy"
 AUTHOR = "Dedale examples"
 DESCRIPTION = "Walks to the nearest point, breadth-first."
+VERSION = 1
 
 # Moves available from every open cell, filled by init().
 neighbors: dict[tuple[int, int], list[tuple[Move, tuple[int, int]]]] = {}

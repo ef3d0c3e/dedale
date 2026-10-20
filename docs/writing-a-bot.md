@@ -103,6 +103,7 @@ from dedale import Move
 NAME = "Racer"
 AUTHOR = "Your name"
 DESCRIPTION = "Goes for the nearest point it reaches before the opponent."
+VERSION = 1
 
 
 def distances(start):
@@ -142,8 +143,9 @@ How it works:
 - `dedale.mark` highlights the target on the maze in the viewers, which is
   how you will see what the bot is thinking.
 - `NAME`, `AUTHOR` and `DESCRIPTION` introduce the bot in result tables and
-  the browser app. They must be plain strings: Dedale reads them without
-  running your file.
+  the browser app, and `VERSION` says which version plays (raise it when
+  you change the bot). They must be plain literals: Dedale reads them
+  without running your file.
 
 Play it alone, then against the greedy bot:
 
@@ -295,7 +297,8 @@ Competitions run every bot in Dedale's sandbox (`--sandbox`). There, a bot:
 
 Also:
 
-- Set `NAME`, `AUTHOR` and `DESCRIPTION`, as plain strings.
+- Set `NAME`, `AUTHOR` and `DESCRIPTION` as plain strings, and `VERSION`,
+  a whole number you raise with every change.
 - Leave `SIGALRM` alone: the harness uses it to stop a move that is out of
   time.
 - Your stdout is yours: `print` goes to the turn's log, never to Dedale.

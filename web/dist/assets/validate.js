@@ -120,7 +120,12 @@ const exitRecord = obj({
     stderr_tail: str,
 });
 /** Older files say nothing about their bots. */
-const about = (value, path) => obj({ name: nullable(str), author: nullable(str), description: nullable(str) })(value ?? {}, path);
+const about = (value, path) => obj({
+    name: nullable(str),
+    author: nullable(str),
+    description: nullable(str),
+    version: nullable(int),
+})(value ?? {}, path);
 const playerRecord = obj({
     name: str,
     path: str,

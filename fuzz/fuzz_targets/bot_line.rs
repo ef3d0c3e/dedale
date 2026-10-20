@@ -18,6 +18,7 @@ fn check_caps(log: &[String], marks: &[Mark]) {
 }
 
 fn check_about(about: &About) {
+    assert_ne!(about.version, Some(0));
     for (text, max) in [
         (&about.name, MAX_NAME),
         (&about.author, MAX_NAME),

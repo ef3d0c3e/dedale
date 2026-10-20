@@ -43,7 +43,8 @@ TRUNCATED = "[truncated]"
 # cap applied when the call ends.
 SINK_LIMIT = 2 * MAX_LOG_BYTES
 # The globals a bot sets to say who it is, and their fields in `hello`.
-ABOUT = {"NAME": "name", "AUTHOR": "author", "DESCRIPTION": "description"}
+ABOUT = {"NAME": "name", "AUTHOR": "author", "DESCRIPTION": "description", "VERSION": "version"}
+MAX_VERSION = 2**32 - 1
 
 
 class Sink(io.TextIOBase):
@@ -285,15 +286,16 @@ def normalize(result: object) -> tuple[str | None, str | None]:
     return None, f"[dedale] move() returned {result!r}; {expected}"
 
 
-def read_about(path: str) -> dict[str, str]:
-    """The bot's NAME, AUTHOR and DESCRIPTION as `hello` fields, read from its
-    source without running it: top-level assignments of a string literal.
-    Other values are left out, with a note on stderr."""
+def read_about(path: str) -> dict[str, str | int]:
+    """The bot's NAME, AUTHOR, DESCRIPTION and VERSION as `hello` fields, read
+    from its source without running it: top-level assignments of a string
+    literal, or for VERSION of a whole number from 1. Other values are left
+    out, with a note on stderr."""
     try:
         tree = ast.parse(Path(path).read_bytes(), filename=path)
     except Exception:  # unreadable or invalid: importing the bot reports it
         return {}
-    about: dict[str, str] = {}
+    about: dict[str, str | int] = {}
     for node in tree.body:
         if isinstance(node, ast.Assign):
             targets, value = node.targets, node.value
@@ -305,11 +307,19 @@ def read_about(path: str) -> dict[str, str]:
             if not isinstance(target, ast.Name) or target.id not in ABOUT:
                 continue
             # The last assignment wins, as it would when the bot runs.
-            if isinstance(value, ast.Constant) and isinstance(value.value, str):
-                about[ABOUT[target.id]] = value.value
+            literal = value.value if isinstance(value, ast.Constant) else None
+            if target.id == "VERSION":
+                # `True` is an int to Python, not a version.
+                ok = type(literal) is int and 1 <= literal <= MAX_VERSION
+                expected = "a whole number from 1"
+            else:
+                ok = isinstance(literal, str)
+                expected = "a string literal"
+            if ok:
+                about[ABOUT[target.id]] = literal
             else:
                 about.pop(ABOUT[target.id], None)
-                print(f"[dedale] {target.id} is not a string literal; ignored", file=sys.stderr)
+                print(f"[dedale] {target.id} is not {expected}; ignored", file=sys.stderr)
     return about
 
 

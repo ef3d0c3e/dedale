@@ -168,8 +168,9 @@ fn a_solo_run_writes_a_verified_replay() {
     assert!(text.starts_with(&format!("maze    {code}\n")), "{text}");
     assert_eq!(record.code.unwrap().to_string(), code);
     assert!(text.contains("result  cleared on turn"), "{text}");
-    // Called by the name it gives itself; its files keep its file name.
-    assert!(text.contains("A  Greedy  Dedale examples"), "{text}");
+    // Called by the name it gives itself, with its version; its files keep
+    // its file name.
+    assert!(text.contains("A  Greedy v1  Dedale examples"), "{text}");
     let record = replay::read(&out.join("replay.json")).unwrap();
     assert_eq!(verify(&record), Ok(()));
     assert_eq!(record.result.reason, EndReason::Cleared);
@@ -177,6 +178,7 @@ fn a_solo_run_writes_a_verified_replay() {
     assert_eq!(player.name, "Greedy");
     assert_eq!(player.about.author.as_deref(), Some("Dedale examples"));
     assert!(player.about.description.is_some());
+    assert_eq!(player.about.version, Some(1));
     assert!(out.join("greedy_bot.stderr.log").exists());
 }
 

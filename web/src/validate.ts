@@ -182,10 +182,12 @@ const exitRecord = obj<ExitRecord>({
 
 /** Older files say nothing about their bots. */
 const about: Check<About> = (value, path) =>
-  obj<About>({ name: nullable(str), author: nullable(str), description: nullable(str) })(
-    value ?? {},
-    path,
-  );
+  obj<About>({
+    name: nullable(str),
+    author: nullable(str),
+    description: nullable(str),
+    version: nullable(int),
+  })(value ?? {}, path);
 
 const playerRecord = obj<PlayerRecord>({
   name: str,

@@ -76,7 +76,7 @@ fn table(record: &GameRecord, style: Style) -> String {
         let problems = problems(record, i, stats);
         let mut row = vec![
             LABELS.get(i).map_or_else(String::new, char::to_string),
-            player.name.clone(),
+            player.about.versioned(&player.name),
         ];
         if authors {
             row.push(player.about.author.clone().unwrap_or_else(dash));

@@ -72,6 +72,8 @@ export interface About {
   name: string | null;
   author: string | null;
   description: string | null;
+  /** A whole number from 1, raised whenever the bot changes. */
+  version: number | null;
 }
 
 export interface PlayerRecord {

@@ -444,6 +444,26 @@ class HarnessTests(unittest.TestCase):
             self.assertIn("DESCRIPTION is not a string literal", stderr)
             self.assertIn("AUTHOR is not a string literal", stderr)
 
+    def test_version_is_a_whole_number_from_1(self):
+        for literal, expected in [
+            ("3", 3),
+            ("4294967295", 4294967295),
+            ("0", None),
+            ("-1", None),
+            ("4294967296", None),
+            ("True", None),
+            ("2.0", None),
+            ('"3"', None),
+            ("2 + 1", None),
+        ]:
+            with self.subTest(literal=literal), Bot(f"VERSION = {literal}\n") as bot:
+                hello = bot.recv()
+                self.assertEqual(hello.get("version"), expected)
+                bot.send(END)
+                self.assertEqual(bot.wait(), 0)
+                if expected is None:
+                    self.assertIn("VERSION is not a whole number from 1", bot.stderr())
+
     def test_duo_state(self):
         source = """
             import dedale

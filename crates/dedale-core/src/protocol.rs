@@ -96,8 +96,9 @@ pub struct Hello {
 }
 
 /// What a bot says about itself, for people: never an identifier or a path.
-/// Any value but a string reads as `None`; [`decode_bot_line`] cleans the
-/// rest with [`About::clean`].
+/// Any value but a string reads as `None` for the texts, and anything but a
+/// whole number from 1 for the version; [`decode_bot_line`] cleans the rest
+/// with [`About::clean`].
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct About {
     #[serde(default, deserialize_with = "lenient")]
@@ -106,6 +107,9 @@ pub struct About {
     pub author: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
     pub description: Option<String>,
+    /// Raised by the bot's author whenever it changes, from 1.
+    #[serde(default, deserialize_with = "positive")]
+    pub version: Option<u32>,
 }
 
 impl About {
@@ -120,6 +124,16 @@ impl About {
             (&mut self.description, MAX_DESCRIPTION),
         ] {
             *text = text.as_deref().and_then(|t| clean_text(t, max));
+        }
+        self.version = self.version.filter(|&v| v > 0);
+    }
+
+    /// `Scorer v3`, or the name alone without a version.
+    #[must_use]
+    pub fn versioned(&self, name: &str) -> String {
+        match self.version {
+            Some(version) => format!("{name} v{version}"),
+            None => name.to_owned(),
         }
     }
 }
@@ -258,6 +272,12 @@ impl MarkKind {
 fn lenient<'de, D: Deserializer<'de>, T: DeserializeOwned>(d: D) -> Result<Option<T>, D::Error> {
     let value = serde_json::Value::deserialize(d)?;
     Ok(serde_json::from_value(value).ok())
+}
+
+/// A whole number from 1, or `None` for anything else (0, negative, too
+/// large, a float, a string, a boolean).
+fn positive<'de, D: Deserializer<'de>>(d: D) -> Result<Option<u32>, D::Error> {
+    Ok(lenient::<D, u32>(d)?.filter(|&v| v > 0))
 }
 
 fn lenient_kind<'de, D: Deserializer<'de>>(d: D) -> Result<MarkKind, D::Error> {
@@ -515,7 +535,7 @@ mod tests {
                     protocol: 1,
                     about: About::default(),
                 }),
-                r#"{"type":"hello","protocol":1,"name":null,"author":null,"description":null}"#,
+                r#"{"type":"hello","protocol":1,"name":null,"author":null,"description":null,"version":null}"#,
             ),
             (
                 FromBot::Hello(Hello {
@@ -524,9 +544,10 @@ mod tests {
                         name: Some("Scorer".to_owned()),
                         author: Some("Ada".to_owned()),
                         description: Some("Scores points.".to_owned()),
+                        version: Some(3),
                     },
                 }),
-                r#"{"type":"hello","protocol":1,"name":"Scorer","author":"Ada","description":"Scores points."}"#,
+                r#"{"type":"hello","protocol":1,"name":"Scorer","author":"Ada","description":"Scores points.","version":3}"#,
             ),
             (
                 FromBot::Ready(Ready {
@@ -618,6 +639,27 @@ mod tests {
         assert_eq!(about.description, None);
         let about = hello(r#"{"type":"hello","protocol":1,"name":" \u200e ","author":["Ada"]}"#);
         assert_eq!(about, About::default());
+        let version = |json: &str| {
+            hello(&format!(
+                r#"{{"type":"hello","protocol":1,"version":{json}}}"#
+            ))
+            .version
+        };
+        assert_eq!(version("1"), Some(1));
+        assert_eq!(version("4294967295"), Some(u32::MAX));
+        for bad in [
+            "0",
+            "-2",
+            "4294967296",
+            "2.5",
+            "3.0",
+            r#""3""#,
+            "true",
+            "null",
+            "[3]",
+        ] {
+            assert_eq!(version(bad), None, "{bad}");
+        }
 
         let long = format!(
             r#"{{"type":"hello","protocol":1,"name":"{}","description":"{}"}}"#,
@@ -804,13 +846,15 @@ mod tests {
             (
                 prop::option::of(text()),
                 prop::option::of(text()),
-                prop::option::of(text())
+                prop::option::of(text()),
+                prop::option::of(any::<u32>())
             )
-                .prop_map(|(name, author, description)| {
+                .prop_map(|(name, author, description, version)| {
                     let mut about = About {
                         name,
                         author,
                         description,
+                        version,
                     };
                     about.clean();
                     FromBot::Hello(Hello { protocol: 1, about })
@@ -859,13 +903,16 @@ mod tests {
             name in any::<String>(),
             author in "(\\s|\\PC|\\p{Cc}|\u{202e}){0,100}",
             description in "\\PC{0,1500}",
+            version in any::<u32>(),
         ) {
             let mut about = About {
                 name: Some(name),
                 author: Some(author),
                 description: Some(description),
+                version: Some(version),
             };
             about.clean();
+            prop_assert_eq!(about.version, (version > 0).then_some(version));
             for (text, max) in [
                 (&about.name, MAX_NAME),
                 (&about.author, MAX_NAME),

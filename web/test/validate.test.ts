@@ -95,7 +95,7 @@ test("marks keep palette colours and paths, and read anything else as Dedale doe
 });
 
 test("older files say nothing about their bots", () => {
-  const nothing = { name: null, author: null, description: null };
+  const nothing = { name: null, author: null, description: null, version: null };
   const old = damaged(replay, (r) => {
     for (const player of r.players) delete player.about;
   });
@@ -111,6 +111,12 @@ test("older files say nothing about their bots", () => {
     [nothing, nothing],
   );
   assert.equal(parseReplay(replay).players[0]?.about.author, "Ada");
+  // Files from before versions: no version.
+  const unversioned = damaged(replay, (r) => {
+    for (const player of r.players) delete player.about.version;
+  });
+  assert.equal(parseReplay(unversioned).players[0]?.about.version, null);
+  assert.equal(parseReplay(replay).players[0]?.about.version, 2);
 });
 
 test("damaged tournaments are refused", () => {

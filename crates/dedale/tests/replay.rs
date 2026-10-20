@@ -32,6 +32,7 @@ fn game() -> GameRecord {
                 name: Some("lap".to_owned()),
                 author: Some("Ada".to_owned()),
                 description: Some("Laps the maze, clockwise.".to_owned()),
+                version: Some(2),
             },
             cpu: None,
             command: fake_bot(&["--moves", LAP, "--log", "on my way"]),

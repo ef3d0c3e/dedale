@@ -27,6 +27,7 @@ DESCRIPTION = (
     "Tries every move, plays the game out with both players greedy, and "
     "keeps the move with the best ending."
 )
+VERSION = 1
 
 # In a duo, the turns a playout looks ahead: enough to see races through,
 # short enough to finish in time on large mazes. Solo playouts go to the

@@ -24,6 +24,7 @@ DESCRIPTION = (
     "Plans its whole route at startup (nearest point first, then 2-opt on "
     "maze distances) and follows it."
 )
+VERSION = 1
 
 # Moves available from every open cell, filled by init().
 neighbors: dict[tuple[int, int], list[tuple[Move, tuple[int, int]]]] = {}

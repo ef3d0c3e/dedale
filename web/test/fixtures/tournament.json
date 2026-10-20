@@ -21,7 +21,8 @@
       "about": {
         "name": "lap",
         "author": "Ada",
-        "description": "Laps the maze, clockwise."
+        "description": "Laps the maze, clockwise.",
+        "version": 2
       }
     },
     {
@@ -30,7 +31,8 @@
       "about": {
         "name": null,
         "author": null,
-        "description": null
+        "description": null,
+        "version": null
       }
     }
   ],

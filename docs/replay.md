@@ -21,8 +21,9 @@ game of a tournament. `dedale replay --verify` checks one against the rules.
 `name` is what the player is called: the name the bot gives itself, else
 its file name, with `-2` added for a second bot of the same name. `about` is
 what the bot says about itself in its `hello`, cleaned (see the
-[protocol](protocol.md#about-the-bot)): `name`, `author`, `description`, each
-`null` when not given; files written before it existed lack it.
+[protocol](protocol.md#about-the-bot)): `name`, `author`, `description` and
+`version`, each `null` when not given; files written before it existed lack
+it, and before versions lack `version`.
 
 `startup`: `outcome` (`ok`, `late`, `init_error`, `timeout`, `crashed`),
 `startup_us` (measured by Dedale), `init_us` (measured by the bot), `log`,

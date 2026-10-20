@@ -77,7 +77,7 @@ when it was rejected).
 ## Messages from the bot
 
 ```json
-{"type": "hello", "protocol": 1, "name": "Scorer", "author": "Ada", "description": "Scores every point."}
+{"type": "hello", "protocol": 1, "name": "Scorer", "author": "Ada", "description": "Scores every point.", "version": 3}
 {"type": "ready", "init_us": 39870, "log": [], "marks": []}
 {"type": "error", "phase": "init", "message": "ValueError: ...", "traceback": "...", "log": []}
 {"type": "move", "turn": 1, "move": "up", "think_us": 812,
@@ -112,8 +112,10 @@ protocol is unchanged.
 
 `hello` may say who the bot is, for leaderboards and viewers: `name`,
 `author` and `description`, all optional strings (any other value reads as
-`null`). Python bots set them with the `NAME`, `AUTHOR` and `DESCRIPTION`
-globals.
+`null`), and `version`, an optional whole number from 1 to 2³²−1 that the
+bot's author raises whenever it changes (any other value, 0 included, reads
+as `null`). Python bots set them with the `NAME`, `AUTHOR`, `DESCRIPTION`
+and `VERSION` globals.
 
 - `dedale run` and `dedale tournament` read them once, before the first
   game: they start each bot, read its `hello` and stop it. The `hello` of
