@@ -1,6 +1,6 @@
 //! What a competitor is and how to start it.
 
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::thread;
@@ -10,6 +10,7 @@ use dedale_core::protocol::{About, FromBot, decode_bot_line};
 
 use crate::interrupt;
 use crate::process::{BotProcess, Output};
+use crate::sandbox::Sandbox;
 
 /// A competitor program: a Python bot, or any executable speaking the raw
 /// protocol.
@@ -82,18 +83,42 @@ impl BotSpec {
     /// file name is never looked up in `PATH`.
     #[must_use]
     pub fn command(&self, launcher: &Launcher) -> Command {
-        let absolute = |path: &Path| std::path::absolute(path).unwrap_or_else(|_| path.to_owned());
-        match self {
-            BotSpec::Python(script) => {
+        self.command_on(launcher, None)
+    }
+
+    /// [`BotSpec::command`], pinned to `cpu` when the launcher sandboxes
+    /// bots. A sandboxed bot sees its own directory and starts there.
+    #[must_use]
+    pub fn command_on(&self, launcher: &Launcher, cpu: Option<usize>) -> Command {
+        let path = std::path::absolute(self.path()).unwrap_or_else(|_| self.path().to_owned());
+        let dir = path.parent().unwrap_or(Path::new("/"));
+        let env = [("PYTHONDONTWRITEBYTECODE", "1")];
+        match (self, &launcher.sandbox) {
+            (BotSpec::Python(_), None) => {
                 let mut command = Command::new(&launcher.python);
                 command
                     .arg("-u")
                     .arg(&launcher.harness)
-                    .arg(absolute(script))
-                    .env("PYTHONDONTWRITEBYTECODE", "1");
+                    .arg(&path)
+                    .envs(env);
                 command
             }
-            BotSpec::Executable(path) => Command::new(absolute(path)),
+            (BotSpec::Executable(_), None) => Command::new(&path),
+            (BotSpec::Python(_), Some(sandbox)) => {
+                let python = sandbox.python().unwrap_or(Path::new(&launcher.python));
+                let harness = launcher.harness.parent().unwrap_or(Path::new("/"));
+                // The harness imports the `dedale` package next to it.
+                let package = harness.parent().unwrap_or(harness);
+                let args = [
+                    OsStr::new("-u"),
+                    launcher.harness.as_os_str(),
+                    path.as_os_str(),
+                ];
+                sandbox.command(python, &args, &env, &[package, dir], dir, cpu)
+            }
+            (BotSpec::Executable(_), Some(sandbox)) => {
+                sandbox.command(&path, &[], &[], &[dir], dir, cpu)
+            }
         }
     }
 }
@@ -113,13 +138,23 @@ pub fn abouts(specs: &[BotSpec], launcher: &Launcher, timeout: Duration) -> Vec<
     })
 }
 
-/// How Python bots are started.
+/// How bots are started.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Launcher {
     /// The interpreter, `python3` by default.
     pub python: OsString,
     /// The harness script that loads a bot module and speaks the protocol.
     pub harness: PathBuf,
+    /// The sandbox every bot runs in, if any.
+    pub sandbox: Option<Sandbox>,
+}
+
+impl Launcher {
+    /// The same launcher, running bots in `sandbox` (none for `None`).
+    #[must_use]
+    pub fn sandboxed(self, sandbox: Option<Sandbox>) -> Self {
+        Self { sandbox, ..self }
+    }
 }
 
 #[cfg(test)]
@@ -146,6 +181,7 @@ mod tests {
         let launcher = Launcher {
             python: "python3.12".into(),
             harness: "/tmp/h/_harness.py".into(),
+            sandbox: None,
         };
         let command = BotSpec::from_path("greedy.py").command(&launcher);
         assert_eq!(command.get_program(), "python3.12");

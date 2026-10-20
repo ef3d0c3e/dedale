@@ -77,6 +77,7 @@ fn events(record: &GameRecord) -> Vec<Value> {
                 name: p.name.clone(),
                 path: p.path.clone(),
                 about: p.about.clone(),
+                cpu: p.cpu,
                 start: p.start,
             })
             .collect(),

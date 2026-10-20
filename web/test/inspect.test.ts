@@ -151,3 +151,15 @@ test("marks are described with their kind", () => {
   );
   assert.equal(describeMark({ cells: [[4, 4]], label: null, color: null }), "unlabelled: 1 cell");
 });
+
+test("sandboxed games say so at startup, with each bot's CPU", () => {
+  assert.equal(field(inspect(data(), 0)[0] ?? { fields: [] }, "sandbox"), undefined);
+  const sandboxed = data((r) => {
+    r.config.sandbox = true;
+    r.players[0].cpu = 11;
+  });
+  assert.equal(sandboxed.config.sandbox, true);
+  const [a, b] = inspect(sandboxed, 0);
+  assert.equal(field(a ?? { fields: [] }, "sandbox")?.value, "on, CPU 11");
+  assert.equal(field(b ?? { fields: [] }, "sandbox")?.value, "on");
+});

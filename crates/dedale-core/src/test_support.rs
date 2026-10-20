@@ -62,6 +62,7 @@ pub(crate) fn simulate(
             name: format!("bot{i}"),
             path: format!("bot{i}.py"),
             about: About::default(),
+            cpu: None,
             start,
             startup: StartupRecord {
                 outcome: StartupOutcome::Ok,
@@ -84,6 +85,7 @@ pub(crate) fn simulate(
             move_ms: 100,
             max_turns,
             seating,
+            sandbox: false,
         },
         players,
         turns,

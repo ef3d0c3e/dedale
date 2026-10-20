@@ -56,6 +56,7 @@ pub fn python_entrant(runtime: &PythonRuntime, path: &Path) -> Entrant {
         name: spec.name(),
         path: path.display().to_string(),
         about: About::default(),
+        cpu: None,
         command: spec.command(&runtime.launcher(python())),
         stderr_log: None,
     }

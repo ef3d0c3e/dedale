@@ -24,6 +24,7 @@ import type {
   MazeSource,
   Pace,
   PlayerRecord,
+  PlayerStart,
   PlayerStats,
   PlayerTurnRecord,
   Pos,
@@ -80,6 +81,11 @@ const signed: Check<number> = (value, path) =>
 
 export function nullable<T>(check: Check<T>): Check<T | null> {
   return (value, path) => (value === null || value === undefined ? null : check(value, path));
+}
+
+/** A field files may leave out: absent stays absent. */
+export function optional<T>(check: Check<T>): Check<T | undefined> {
+  return (value, path) => (value === undefined ? undefined : check(value, path));
 }
 
 export function arr<T>(check: Check<T>): Check<T[]> {
@@ -150,7 +156,13 @@ export const maze: Check<MazeData> = (value, path) => {
   return data;
 };
 
-const config = obj<ConfigRecord>({ startup_ms: int, move_ms: int, max_turns: int, seating });
+const config = obj<ConfigRecord>({
+  startup_ms: int,
+  move_ms: int,
+  max_turns: int,
+  seating,
+  sandbox: optional(bool),
+});
 
 export const startupRecord: Check<StartupRecord> = obj<StartupRecord>({
   outcome: oneOf("ok", "late", "init_error", "timeout", "crashed"),
@@ -179,6 +191,7 @@ const playerRecord = obj<PlayerRecord>({
   name: str,
   path: str,
   about,
+  cpu: optional(int),
   start: pos,
   startup: startupRecord,
   exit: nullable(exitRecord),
@@ -435,7 +448,7 @@ export const gameStart = obj<GameStart>({
   code: nullable(str),
   maze,
   config,
-  players: arr(obj({ name: str, path: str, about, start: pos })),
+  players: arr(obj<PlayerStart>({ name: str, path: str, about, cpu: optional(int), start: pos })),
 });
 
 const gameEndFields = {

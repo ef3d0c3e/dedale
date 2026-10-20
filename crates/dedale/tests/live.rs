@@ -367,6 +367,7 @@ fn in_process(out: &Path, moves: &str, max_turns: u32) -> InProcess {
             name: "bot".to_owned(),
             path: "fake".to_owned(),
             about: About::default(),
+            cpu: None,
             command: fake_bot(&["--moves", &moves]),
             stderr_log: None,
         };

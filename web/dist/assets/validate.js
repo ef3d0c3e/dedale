@@ -34,6 +34,10 @@ const signed = (value, path) => typeof value === "number" && Number.isSafeIntege
 export function nullable(check) {
     return (value, path) => (value === null || value === undefined ? null : check(value, path));
 }
+/** A field files may leave out: absent stays absent. */
+export function optional(check) {
+    return (value, path) => (value === undefined ? undefined : check(value, path));
+}
 export function arr(check) {
     return (value, path) => {
         if (!Array.isArray(value))
@@ -94,7 +98,13 @@ export const maze = (value, path) => {
         fail(field(path, "cells"), "only #, . and _", data.cells);
     return data;
 };
-const config = obj({ startup_ms: int, move_ms: int, max_turns: int, seating });
+const config = obj({
+    startup_ms: int,
+    move_ms: int,
+    max_turns: int,
+    seating,
+    sandbox: optional(bool),
+});
 export const startupRecord = obj({
     outcome: oneOf("ok", "late", "init_error", "timeout", "crashed"),
     startup_us: nullable(int),
@@ -115,6 +125,7 @@ const playerRecord = obj({
     name: str,
     path: str,
     about,
+    cpu: optional(int),
     start: pos,
     startup: startupRecord,
     exit: nullable(exitRecord),
@@ -346,7 +357,7 @@ export const gameStart = obj({
     code: nullable(str),
     maze,
     config,
-    players: arr(obj({ name: str, path: str, about, start: pos })),
+    players: arr(obj({ name: str, path: str, about, cpu: optional(int), start: pos })),
 });
 const gameEndFields = {
     format: int,

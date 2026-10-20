@@ -8,5 +8,6 @@ pub mod python;
 pub mod referee;
 pub mod render;
 pub mod replay;
+pub mod sandbox;
 pub mod tournament;
 pub mod web;

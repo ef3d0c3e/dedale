@@ -96,6 +96,14 @@ when it was rejected).
   cells) or `path` (a line through the cells in order); any other value reads
   as `cells`. Viewers choose the shades.
 
+## In the sandbox
+
+With `--sandbox`, Dedale starts the bot through bubblewrap (see the README):
+its own directory is its working directory and is read-only, `/tmp` is
+private and small, there is no network, and the environment holds only
+`PATH`, `HOME` (`/tmp`), `LANG` and what Dedale's own command sets. The
+protocol is unchanged.
+
 ## About the bot
 
 `hello` may say who the bot is, for leaderboards and viewers: `name`,

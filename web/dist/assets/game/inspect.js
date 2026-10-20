@@ -4,6 +4,13 @@
 // page shows them as text, never as HTML.
 import { formatUs, letter, outcomeName, score } from "../format.js";
 const plain = (label, value) => ({ label, value, tone: "plain" });
+/** Where the bot runs, when Dedale sandboxed it: `CPU 3`. */
+function sandboxField(data, player) {
+    if (!data.config.sandbox)
+        return [];
+    const cpu = data.players[player]?.cpu;
+    return [plain("sandbox", cpu === undefined ? "on" : `on, CPU ${cpu}`)];
+}
 function startupFields(startup, budgetMs) {
     if (!startup)
         return [{ label: "startup", value: "starting…", tone: "plain" }];
@@ -53,7 +60,7 @@ export function inspect(data, turn) {
             return {
                 player: i,
                 title,
-                fields: startupFields(startup, data.config.startup_ms),
+                fields: [...startupFields(startup, data.config.startup_ms), ...sandboxField(data, i)],
                 log: startup?.log ?? [],
                 marks: startup?.marks ?? [],
                 error: startup?.error ?? null,

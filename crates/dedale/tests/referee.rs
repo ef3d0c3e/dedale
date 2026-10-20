@@ -34,6 +34,7 @@ fn entrant(name: &str, args: &[&str]) -> Entrant {
         name: name.to_owned(),
         path: format!("fake:{name}"),
         about: About::default(),
+        cpu: None,
         command: fake_bot(args),
         stderr_log: None,
     }
@@ -47,6 +48,7 @@ fn config(seating: Seating) -> MatchConfig {
         seating,
         hello_timeout: Duration::from_secs(10),
         end_grace: Duration::from_millis(200),
+        sandbox: false,
     }
 }
 
@@ -450,6 +452,7 @@ fn wrong_player_counts_and_missing_programs_are_errors() {
         name: "ghost".to_owned(),
         path: "/nonexistent".to_owned(),
         about: About::default(),
+        cpu: None,
         command: std::process::Command::new("/nonexistent/bot"),
         stderr_log: None,
     };

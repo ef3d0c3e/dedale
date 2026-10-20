@@ -399,6 +399,7 @@ mod tests {
                 move_ms: 0,
                 max_turns: 100,
                 seating,
+                sandbox: false,
             },
             players: Vec::new(),
             turns: Vec::new(),

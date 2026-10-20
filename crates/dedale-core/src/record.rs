@@ -120,6 +120,9 @@ pub struct ConfigRecord {
     pub move_ms: u64,
     pub max_turns: u32,
     pub seating: Seating,
+    /// Whether the bots ran in Dedale's sandbox; written only when they did.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub sandbox: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -130,6 +133,9 @@ pub struct PlayerRecord {
     /// What the bot says about itself (absent from older replays).
     #[serde(default)]
     pub about: About,
+    /// The CPU it was pinned to, if any; written only when it was.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cpu: Option<u32>,
     pub start: Pos,
     pub startup: StartupRecord,
     pub exit: Option<ExitRecord>,

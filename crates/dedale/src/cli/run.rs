@@ -1,6 +1,6 @@
 //! `dedale run`: one game.
 
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io::{IsTerminal, Write};
 use std::path::PathBuf;
@@ -13,11 +13,12 @@ use dedale_core::record::TurnRecord;
 
 use super::serve::LiveArgs;
 use super::{CliResult, ColorChoice, MazeArgs, summary, timestamp};
-use crate::bot::{BotSpec, abouts};
+use crate::bot::{BotSpec, Launcher, abouts};
 use crate::python::PythonRuntime;
 use crate::referee::{Entrant, GameStart, MatchConfig, Observer, run_match};
 use crate::render::{Frame, Style, render};
 use crate::replay;
+use crate::sandbox::{self, Limits, Sandbox};
 use crate::web::live::LiveMode;
 use crate::web::live::Plan;
 
@@ -31,6 +32,8 @@ pub(crate) struct RunArgs {
     maze: MazeArgs,
     #[command(flatten)]
     timing: TimingArgs,
+    #[command(flatten)]
+    sandbox: SandboxArgs,
     /// Start player A from the bottom-right corner instead.
     #[arg(long)]
     swap: bool,
@@ -73,6 +76,67 @@ impl TimingArgs {
             ..MatchConfig::new(seating)
         }
     }
+}
+
+#[derive(Debug, Clone, Args)]
+pub(crate) struct SandboxArgs {
+    /// Run every bot in a sandbox (Linux, with bubblewrap): no network, a
+    /// read-only view of the system and of its own directory, resource
+    /// limits, and a CPU of its own.
+    #[arg(long)]
+    pub sandbox: bool,
+    /// Memory per sandboxed bot process, in MiB.
+    #[arg(long, value_name = "MIB", default_value_t = Limits::default().memory_mib, requires = "sandbox")]
+    pub memory_mib: u64,
+    /// Processes and threads per sandboxed bot.
+    #[arg(long, value_name = "N", default_value_t = Limits::default().processes, requires = "sandbox")]
+    pub processes: u64,
+}
+
+impl SandboxArgs {
+    /// A launcher for `bots` bots, sandboxed when asked (checked to work
+    /// here, its settings printed after `label`), and a CPU for each bot
+    /// when sandboxed; Dedale itself keeps off those CPUs.
+    pub(crate) fn launcher(
+        &self,
+        runtime: &PythonRuntime,
+        python: &OsStr,
+        bots: usize,
+        label: &str,
+    ) -> CliResult<(Launcher, Vec<usize>)> {
+        let launcher = runtime.launcher(python);
+        if !self.sandbox {
+            return Ok((launcher, Vec::new()));
+        }
+        let limits = Limits {
+            memory_mib: self.memory_mib,
+            processes: self.processes,
+            ..Limits::default()
+        };
+        let sandbox = Sandbox::new(limits, python)?;
+        let cpus = sandbox::cores(bots);
+        sandbox::keep_off(&cpus);
+        // Reentrant: the caller may hold stdout's lock.
+        writeln!(
+            std::io::stdout().lock(),
+            "{label}{}",
+            describe(&sandbox, &cpus)
+        )?;
+        Ok((launcher.sandboxed(Some(sandbox)), cpus))
+    }
+}
+
+/// The sandbox in a line, for the terminal.
+fn describe(sandbox: &Sandbox, cpus: &[usize]) -> String {
+    let l = &sandbox.limits;
+    let cpus: Vec<String> = cpus.iter().map(ToString::to_string).collect();
+    format!(
+        "on, CPU {} by bot; {} MiB, {} processes and {} MiB of /tmp per bot",
+        cpus.join(", "),
+        l.memory_mib,
+        l.processes,
+        l.tmp_mib
+    )
 }
 
 #[derive(Debug, Clone, Args)]
@@ -140,9 +204,12 @@ pub(crate) fn run(args: &RunArgs) -> CliResult {
     fs::create_dir_all(&out).map_err(|e| format!("cannot create {}: {e}", out.display()))?;
 
     let runtime = PythonRuntime::extract()?;
-    let launcher = runtime.launcher(args.python.clone());
     let specs: Vec<BotSpec> = args.bots.iter().map(BotSpec::from_path).collect();
-    let config = args.timing.config(seating);
+    let (launcher, cpus) =
+        args.sandbox
+            .launcher(&runtime, &args.python, specs.len(), "sandbox ")?;
+    let mut config = args.timing.config(seating);
+    config.sandbox = launcher.sandbox.is_some();
     let abouts = abouts(&specs, &launcher, config.hello_timeout);
     let names = player_names(&specs, &abouts);
     let files = file_names(&specs);
@@ -154,7 +221,8 @@ pub(crate) fn run(args: &RunArgs) -> CliResult {
             name: names[i].clone(),
             path: spec.path().display().to_string(),
             about,
-            command: spec.command(&launcher),
+            cpu: cpus.get(i).copied(),
+            command: spec.command_on(&launcher, cpus.get(i).copied()),
             stderr_log: Some(out.join(format!("{}.stderr.log", files[i]))),
         })
         .collect();

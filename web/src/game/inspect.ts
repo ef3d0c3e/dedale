@@ -33,6 +33,13 @@ export interface PlayerPanel {
 
 const plain = (label: string, value: string): Field => ({ label, value, tone: "plain" });
 
+/** Where the bot runs, when Dedale sandboxed it: `CPU 3`. */
+function sandboxField(data: GameData, player: number): Field[] {
+  if (!data.config.sandbox) return [];
+  const cpu = data.players[player]?.cpu;
+  return [plain("sandbox", cpu === undefined ? "on" : `on, CPU ${cpu}`)];
+}
+
 function startupFields(startup: StartupRecord | null, budgetMs: number): Field[] {
   if (!startup) return [{ label: "startup", value: "starting…", tone: "plain" }];
   const words: Record<StartupRecord["outcome"], string> = {
@@ -84,7 +91,7 @@ export function inspect(data: GameData, turn: number): PlayerPanel[] {
       return {
         player: i,
         title,
-        fields: startupFields(startup, data.config.startup_ms),
+        fields: [...startupFields(startup, data.config.startup_ms), ...sandboxField(data, i)],
         log: startup?.log ?? [],
         marks: startup?.marks ?? [],
         error: startup?.error ?? null,

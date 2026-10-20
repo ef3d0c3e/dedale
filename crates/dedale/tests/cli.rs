@@ -2,6 +2,7 @@
 
 mod common;
 
+use std::ffi::OsStr;
 use std::fs;
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
@@ -10,6 +11,7 @@ use std::time::{Duration, Instant};
 
 use common::{example_bot, test_bot};
 use dedale::replay;
+use dedale::sandbox::{Limits, Sandbox};
 use dedale_core::game::EndReason;
 use dedale_core::maze::Maze;
 use dedale_core::verify::verify;
@@ -176,6 +178,51 @@ fn a_solo_run_writes_a_verified_replay() {
     assert_eq!(player.about.author.as_deref(), Some("Dedale examples"));
     assert!(player.about.description.is_some());
     assert!(out.join("greedy_bot.stderr.log").exists());
+}
+
+#[test]
+fn a_sandboxed_run() {
+    let missing = dedale(&[
+        "run",
+        "--memory-mib",
+        "100",
+        path(&example_bot("greedy_bot")),
+    ]);
+    assert!(!missing.status.success());
+    assert!(
+        stderr(&missing).contains("--sandbox"),
+        "{}",
+        stderr(&missing)
+    );
+
+    let python = common::python();
+    if let Err(e) = Sandbox::new(Limits::default(), OsStr::new(&python)) {
+        eprintln!("skipped: {e}");
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("out");
+    let greedy = example_bot("greedy_bot");
+    let output = dedale(&[
+        "run",
+        "--sandbox",
+        path(&greedy),
+        "--size",
+        "11x11",
+        "--seed",
+        "7",
+        "--out",
+        path(&out),
+    ]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let text = stdout(&output);
+    assert!(text.contains("\nsandbox on, CPU "), "{text}");
+    // Read through the sandbox, as the game was played.
+    assert!(text.contains("A  Greedy"), "{text}");
+    let record = replay::read(&out.join("replay.json")).unwrap();
+    assert!(record.config.sandbox);
+    assert!(record.players[0].cpu.is_some());
+    assert_eq!(record.result.reason, EndReason::Cleared);
 }
 
 #[test]

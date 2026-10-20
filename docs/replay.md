@@ -11,8 +11,8 @@ game of a tournament. `dedale replay --verify` checks one against the rules.
 | `dedale` | Version of Dedale that played the game |
 | `code` | Maze code, `null` for a map file |
 | `maze` | `width`, `height`, `cells`: the maze at turn 0, as in the protocol |
-| `config` | `startup_ms`, `move_ms`, `max_turns`, `seating` (`solo`, `duo`, `duo_swapped`) |
-| `players` | Per bot: `name`, `path`, `about`, `start`, `startup`, `exit` |
+| `config` | `startup_ms`, `move_ms`, `max_turns`, `seating` (`solo`, `duo`, `duo_swapped`), and `sandbox: true` when the bots ran in the sandbox (absent otherwise) |
+| `players` | Per bot: `name`, `path`, `about`, `cpu` (the CPU it was pinned to, absent when it was not), `start`, `startup`, `exit` |
 | `turns` | One entry per turn: `turn`, `players`, `collected` |
 | `events` | Out-of-turn happenings: `{turn, player, kind: "late", for_turn}` or `{turn, player, kind: "ignored", reason}` |
 | `result` | `reason` (`cleared`, `turn_limit`, `abandoned`), `turns`, `half_points`, `winner` (`null` on a draw and in solo), `cleared_turn` |

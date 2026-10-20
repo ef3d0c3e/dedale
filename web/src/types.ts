@@ -47,6 +47,8 @@ export interface ConfigRecord {
   move_ms: number;
   max_turns: number;
   seating: Seating;
+  /** Present, and true, when the bots ran in Dedale's sandbox. */
+  sandbox?: boolean;
 }
 
 export interface StartupRecord {
@@ -77,6 +79,8 @@ export interface PlayerRecord {
   name: string;
   path: string;
   about: About;
+  /** The CPU the bot was pinned to, when it was. */
+  cpu?: number;
   start: Pos;
   startup: StartupRecord;
   exit: ExitRecord | null;
@@ -277,6 +281,7 @@ export interface PlayerStart {
   name: string;
   path: string;
   about: About;
+  cpu?: number;
   start: Pos;
 }
 

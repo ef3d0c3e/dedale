@@ -37,6 +37,7 @@ fn a_stop_request_ends_a_held_game() {
         name: "bot".to_owned(),
         path: "fake:bot".to_owned(),
         about: About::default(),
+        cpu: None,
         command: fake_bot(&[]),
         stderr_log: None,
     };

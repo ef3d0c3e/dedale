@@ -54,6 +54,8 @@ pub struct MatchConfig {
     pub hello_timeout: Duration,
     /// Time a bot gets to exit after `end` before it is killed.
     pub end_grace: Duration,
+    /// Whether the entrants' commands run in a sandbox, for the record.
+    pub sandbox: bool,
 }
 
 impl MatchConfig {
@@ -67,6 +69,7 @@ impl MatchConfig {
             seating,
             hello_timeout: Duration::from_secs(10),
             end_grace: Duration::from_secs(1),
+            sandbox: false,
         }
     }
 }
@@ -81,6 +84,8 @@ pub struct Entrant {
     /// What the bot says about itself, read before the game
     /// ([`crate::bot::BotSpec::about`]).
     pub about: About,
+    /// The CPU its command pins it to, if any, for the record.
+    pub cpu: Option<usize>,
     pub command: Command,
     pub stderr_log: Option<PathBuf>,
 }
@@ -117,6 +122,9 @@ pub struct PlayerStart {
     pub name: String,
     pub path: String,
     pub about: About,
+    /// The CPU the bot is pinned to, if any; written only when it is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cpu: Option<u32>,
     pub start: Pos,
 }
 
@@ -270,6 +278,7 @@ impl GameStart {
                 name: entrant.name.clone(),
                 path: entrant.path.clone(),
                 about: entrant.about.clone(),
+                cpu: entrant.cpu.and_then(|cpu| u32::try_from(cpu).ok()),
                 start,
             })
             .collect();
@@ -281,6 +290,7 @@ impl GameStart {
                 move_ms: millis(config.move_timeout),
                 max_turns,
                 seating: config.seating,
+                sandbox: config.sandbox,
             },
             players,
         }
@@ -297,6 +307,7 @@ struct Seat {
     name: String,
     path: String,
     about: About,
+    cpu: Option<usize>,
     /// `None` once the bot is gone (crashed or failed to start) and reaped.
     process: Option<BotProcess>,
     exit: Option<ExitReport>,
@@ -374,6 +385,7 @@ impl Seat {
             name: entrant.name,
             path: entrant.path,
             about: entrant.about,
+            cpu: entrant.cpu,
             process: Some(process),
             exit: None,
             ready: false,
@@ -466,6 +478,7 @@ impl Seat {
             name: self.name,
             path: self.path,
             about: self.about,
+            cpu: self.cpu.and_then(|cpu| u32::try_from(cpu).ok()),
             start,
             startup: self.startup,
             exit: self.exit.map(|exit| ExitRecord {

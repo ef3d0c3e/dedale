@@ -137,3 +137,12 @@ game.
 Your bot's stdin is empty, and whatever it writes to its stdout, even through
 the raw file descriptor, never reaches the protocol. Its stderr goes to a log
 file next to the replay.
+
+### In a sandbox
+
+Competitions run bots with `dedale run --sandbox` or `dedale tournament
+--sandbox`. A sandboxed bot can read its own directory (sibling modules
+still import) and the standard library, write only to `/tmp` (64 MiB), and
+has no network and an empty environment; memory and processes are capped.
+Only the standard library is guaranteed: packages installed into the
+interpreter happen to be visible, but a competition may not have them.

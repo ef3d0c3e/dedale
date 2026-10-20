@@ -66,6 +66,7 @@ impl PythonRuntime {
         Launcher {
             python: python.into(),
             harness: self.harness(),
+            sandbox: None,
         }
     }
 }

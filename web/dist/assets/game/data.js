@@ -4,7 +4,7 @@ export function fromRecord(record) {
     return {
         code: record.code,
         config: record.config,
-        players: record.players.map(({ name, path, about, start }) => ({ name, path, about, start })),
+        players: record.players.map(({ name, path, about, cpu, start }) => cpu === undefined ? { name, path, about, start } : { name, path, about, cpu, start }),
         model: GameModel.fromRecord(record),
         startups: record.players.map((p) => p.startup),
         events: record.events,

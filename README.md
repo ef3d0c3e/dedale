@@ -193,6 +193,7 @@ Plays one game. The maze's **code** is printed first: pass it back with
 | `--marks a\|b\|none`, `--ascii`, `--color auto\|always\|never` | Drawing options |
 | `--out DIR` | Where the replay and logs go (default `dedale-out/<time>-<maze>/`) |
 | `--python PATH` | Interpreter for `.py` bots (or `DEDALE_PYTHON`; default `python3`) |
+| `--sandbox` | Run the bots in a [sandbox](#running-bots-you-did-not-write), with `--memory-mib N` and `--processes N` |
 
 At the end it prints the result and, per bot, the score, steps, startup time,
 latency percentiles and any problems (illegal moves, timeouts, errors...).
@@ -240,7 +241,35 @@ of mazes (default 10); `--seed` is the master seed all maze codes derive from,
 so a tournament can be replayed exactly. It writes every game's replay plus a
 `tournament.json` with the leaderboard. `--view` follows the whole tournament
 in the [browser app](#browser-app): one Start, every game live, the
-leaderboard after each game.
+leaderboard after each game. It takes `run`'s maze, timing and `--sandbox`
+options.
+
+### Running bots you did not write
+
+A bot is a program running with your rights: it could read your files or
+use the network. `--sandbox` (on `run` and `tournament`, Linux only) runs
+each bot with [bubblewrap](https://github.com/containers/bubblewrap)
+instead. A sandboxed bot:
+
+- sees the system read-only (`/usr`, the libraries), its own directory and
+  the Python installation read-only, and nothing else of your files;
+- writes only to a private `/tmp` of 64 MiB, which disappears with it;
+- has no network and an empty environment (no tokens or secrets from
+  yours), and cannot see other processes;
+- gets at most 2048 MiB of memory per process (`--memory-mib`) and 64
+  processes and threads (`--processes`);
+- runs on a CPU of its own, on separate physical cores when there are
+  enough; Dedale keeps off those CPUs.
+
+It needs `bwrap`, `prlimit` and `taskset` (util-linux). Dedale checks that
+they work before the first game and stops with an explanation if they do
+not. On Ubuntu 24.04 and later, AppArmor blocks the unprivileged user
+namespaces bubblewrap uses: load bwrap's AppArmor profile, or run
+`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`. The replay
+notes that the game was sandboxed and which CPU each bot had.
+
+A bot can still change its own CPU affinity: pinning keeps honest bots
+apart, it does not stop a determined one.
 
 ### `dedale view [DIR]`
 

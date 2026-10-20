@@ -37,6 +37,7 @@ fn fake_entrant(bot: usize, dir: &Path) -> Entrant {
         name: name.to_owned(),
         path: format!("fake:{name}"),
         about: About::default(),
+        cpu: None,
         command: fake_bot(&args),
         stderr_log: Some(dir.join(format!("{name}.stderr.log"))),
     }

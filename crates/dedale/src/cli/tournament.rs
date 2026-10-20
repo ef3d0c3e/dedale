@@ -18,7 +18,7 @@ use dedale_core::protocol::About;
 use dedale_core::record::{GameRecord, StartupRecord, TurnRecord};
 use dedale_core::rng::fresh_seed;
 
-use super::run::{TimingArgs, file_names, player_names};
+use super::run::{SandboxArgs, TimingArgs, file_names, player_names};
 use super::serve::LiveArgs;
 use super::summary::{describe, format_table, score};
 use super::{CliResult, ColorChoice, MazeArgs, timestamp};
@@ -48,6 +48,8 @@ pub(crate) struct TournamentArgs {
     maze: MazeArgs,
     #[command(flatten)]
     timing: TimingArgs,
+    #[command(flatten)]
+    sandbox: SandboxArgs,
     /// Draw with ASCII characters only.
     #[arg(long)]
     ascii: bool,
@@ -74,11 +76,7 @@ pub(crate) fn run(args: &TournamentArgs) -> CliResult {
     let master_seed = args.maze.seed.unwrap_or_else(fresh_seed);
     let (params, map, source) = mazes(args)?;
     let plans = schedule(mode, args.bots.len(), args.games, params, master_seed);
-    let out = args
-        .out
-        .clone()
-        .unwrap_or_else(|| PathBuf::from("dedale-out").join(format!("{}-tournament", timestamp())));
-    fs::create_dir_all(&out).map_err(|e| format!("cannot create {}: {e}", out.display()))?;
+    let out = out_dir(args)?;
 
     let mut stdout = io::stdout().lock();
     let mode_name = match mode {
@@ -93,10 +91,13 @@ pub(crate) fn run(args: &TournamentArgs) -> CliResult {
     )?;
 
     let runtime = PythonRuntime::extract()?;
-    let launcher = runtime.launcher(args.python.clone());
     let specs: Vec<BotSpec> = args.bots.iter().map(BotSpec::from_path).collect();
+    let (launcher, cpus) =
+        args.sandbox
+            .launcher(&runtime, &args.python, specs.len(), "sandbox     ")?;
     // The seating is set per game.
-    let config = args.timing.config(Seating::Solo);
+    let mut config = args.timing.config(Seating::Solo);
+    config.sandbox = launcher.sandbox.is_some();
     let abouts = abouts(&specs, &launcher, config.hello_timeout);
     let names = player_names(&specs, &abouts);
     let files = file_names(&specs);
@@ -104,7 +105,8 @@ pub(crate) fn run(args: &TournamentArgs) -> CliResult {
         name: names[bot].clone(),
         path: specs[bot].path().display().to_string(),
         about: abouts[bot].clone(),
-        command: specs[bot].command(&launcher),
+        cpu: cpus.get(bot).copied(),
+        command: specs[bot].command_on(&launcher, cpus.get(bot).copied()),
         stderr_log: Some(dir.join(format!("{}.stderr.log", files[bot]))),
     };
     let maze = |plan: &GamePlan| match (&map, plan.code) {
@@ -295,6 +297,16 @@ fn report(
             .collect(),
         leaderboard: standings(mode, &names, games),
     }
+}
+
+/// The output directory, created.
+fn out_dir(args: &TournamentArgs) -> CliResult<PathBuf> {
+    let out = args
+        .out
+        .clone()
+        .unwrap_or_else(|| PathBuf::from("dedale-out").join(format!("{}-tournament", timestamp())));
+    fs::create_dir_all(&out).map_err(|e| format!("cannot create {}: {e}", out.display()))?;
+    Ok(out)
 }
 
 /// Duo for two bots, solo for one or with `--solo`.
