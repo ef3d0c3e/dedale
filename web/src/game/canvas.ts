@@ -1,5 +1,6 @@
-// Draws a maze at one turn: walls (cached), points, collected cells tinted
-// by who took them, players, and an overlay of marked cells.
+// Draws a maze at one turn: walls (cached), the points left (a collected
+// cell is plain floor again), an optional heatmap, players, and an overlay
+// of marked cells.
 
 import type { GameModel, PlayerState } from "../model.ts";
 import type { Mark } from "../types.ts";
@@ -127,18 +128,7 @@ export class MazeCanvas {
     ctx.drawImage(this.wallLayer(), 0, 0);
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
 
-    if (heat) {
-      this.drawHeat(ctx, heat);
-    } else {
-      // Cells already collected, tinted by who took them.
-      ctx.globalAlpha = 0.22;
-      for (const taken of this.model.taken) {
-        if (taken.turn > turn) break;
-        ctx.fillStyle = this.takerColour(taken.by);
-        ctx.fillRect(taken.x * c, taken.y * c, c, c);
-      }
-      ctx.globalAlpha = 1;
-    }
+    if (heat) this.drawHeat(ctx, heat);
 
     ctx.fillStyle = p.point;
     const round = c >= 6;

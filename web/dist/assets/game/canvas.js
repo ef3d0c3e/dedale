@@ -1,5 +1,6 @@
-// Draws a maze at one turn: walls (cached), points, collected cells tinted
-// by who took them, players, and an overlay of marked cells.
+// Draws a maze at one turn: walls (cached), the points left (a collected
+// cell is plain floor again), an optional heatmap, players, and an overlay
+// of marked cells.
 import { strength } from "./heat.js";
 import { cellAt, fit } from "./layout.js";
 function readPalette() {
@@ -96,20 +97,8 @@ export class MazeCanvas {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.drawImage(this.wallLayer(), 0, 0);
         ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-        if (heat) {
+        if (heat)
             this.drawHeat(ctx, heat);
-        }
-        else {
-            // Cells already collected, tinted by who took them.
-            ctx.globalAlpha = 0.22;
-            for (const taken of this.model.taken) {
-                if (taken.turn > turn)
-                    break;
-                ctx.fillStyle = this.takerColour(taken.by);
-                ctx.fillRect(taken.x * c, taken.y * c, c, c);
-            }
-            ctx.globalAlpha = 1;
-        }
         ctx.fillStyle = p.point;
         const round = c >= 6;
         const size = round ? c * 0.18 : Math.max(1, Math.floor(c / 3));

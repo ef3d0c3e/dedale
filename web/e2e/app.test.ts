@@ -76,7 +76,9 @@ test("browsing results: runs, a game, a tournament", async () => {
       page.eval<number[]>(
         `[...document.querySelector("canvas.maze").getContext("2d").getImageData(${x}, ${y}, 1, 1).data]`,
       );
-    assert.notDeepEqual(await pixel(60, 60), await pixel(2, 2), "a wall is not the floor");
+    const floor = await pixel(2, 2);
+    assert.notDeepEqual(await pixel(60, 60), floor, "a wall is not the floor");
+    assert.notDeepEqual(await pixel(60, 20), floor, "(1, 0) holds a point");
     const head = "document.querySelector('.game-head').textContent";
     assert.match(await page.eval<string>(head), /turn 0 \/ 12/);
     await page.press("ArrowRight", "ArrowRight", 39);
@@ -85,6 +87,7 @@ test("browsing results: runs, a game, a tournament", async () => {
     assert.match(await page.text(".panel.player-0 pre.log"), /on my way/);
     await page.press("End", "End", 35);
     await page.waitFor(`${head}.includes("turn 12 / 12")`);
+    assert.deepEqual(await pixel(60, 20), floor, "a collected cell is plain floor");
     assert.match(await page.text(".panel.player-0"), /exit/);
     assert.equal(await page.eval<number>("document.querySelectorAll('canvas.chart').length"), 3);
     await page.choose("Heatmap", "visits:0");

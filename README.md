@@ -255,9 +255,9 @@ ones a bot played. A file Dedale cannot read is listed with the reason.
 
 **A game.** Choose a turn and see everything about it:
 
-- the **maze**: walls, points left, collected cells tinted by who took them,
-  and the players (A blue, B orange; a split disc when they share a cell).
-  Hover a cell for its position and the turn its point was taken.
+- the **maze**: walls, the points left, and the players (A blue, B orange;
+  a split disc when they share a cell). Hover a cell for its position and
+  the turn its point was taken.
 - the **header**: turn and turn limit, points left, scores, maze code, and
   the result.
 - the **timeline**: a scrubber, step and play buttons, the playback speed,
@@ -272,7 +272,7 @@ ones a bot played. A file Dedale cannot read is listed with the reason.
   the last turn shows how each bot exited and the end of its stderr. Pick
   whose marks are drawn on the maze.
 - **heatmaps** under the maze: how often each player stood on each cell, or
-  the order the points were taken in.
+  which player took each point, shaded by the order they were taken in.
 - **charts**: latency and time inside `move()` per turn (log scale, the move
   budget drawn), and the score of each player over the game. Hover to read
   a turn's values; click to go to it.
