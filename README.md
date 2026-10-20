@@ -1,5 +1,7 @@
 # Dedale
 
+[![CI](https://github.com/ef3d0c3e/dedale/actions/workflows/ci.yml/badge.svg)](https://github.com/ef3d0c3e/dedale/actions/workflows/ci.yml)
+
 A referee for maze bots. One or two competitor programs explore a symmetric
 maze from opposite corners and race to collect its points:
 
@@ -16,6 +18,34 @@ browser app, live or afterwards.
 cargo build --release
 ./target/release/dedale run examples/python/greedy_bot.py examples/python/tour_bot.py --watch --delay 50
 ```
+
+Want to write a bot? Start with [Writing a bot](docs/writing-a-bot.md).
+
+## Contents
+
+- [Documentation](#documentation)
+- [Rules](#rules): [timing](#timing)
+- [Writing a Python bot](#writing-a-python-bot): [beyond greedy](#beyond-greedy)
+- [Commands](#commands): [`run`](#dedale-run-bot-bot), [`maze`](#dedale-maze),
+  [`replay`](#dedale-replay-replayjson),
+  [`tournament`](#dedale-tournament-bot),
+  [running bots you did not write](#running-bots-you-did-not-write),
+  [`view`](#dedale-view-dir)
+- [Browser app](#browser-app)
+- [Analytics](#analytics)
+- [Other languages](#other-languages)
+- [Development and tests](#development-and-tests)
+
+## Documentation
+
+| Page | What it covers |
+|---|---|
+| [Writing a bot](docs/writing-a-bot.md) | From an empty file to a competitive bot: running it, watching it think, measuring it, getting it ready for a competition |
+| [Python API](bindings/python/README.md) | Everything the `dedale` module gives a bot: the maze, the game state, time, logs and marks, errors |
+| [Bot protocol](docs/protocol.md) | For bots in other languages: the JSON lines Dedale and a program exchange |
+| [Replay and tournament files](docs/replay.md) | The formats of `replay.json` and `tournament.json`, to analyse games with your own tools |
+| [The browser app's server](docs/web.md) | Its routes, security and live events, to script a live session |
+| [Working on the browser app](web/README.md) | The app's layout, build, tests and fixtures |
 
 ## Rules
 
@@ -53,7 +83,8 @@ cargo build --release
 
 ## Writing a Python bot
 
-A bot is a Python file with an optional `init()` and a `move()`. The game
+[Writing a bot](docs/writing-a-bot.md) walks through it step by step; in
+short, a bot is a Python file with an optional `init()` and a `move()`. The game
 state lives in the `dedale` module, which Dedale fills before importing your
 file and updates before every call to `move()`. Here is the greedy example
 bot from `examples/python/greedy_bot.py`:
@@ -395,7 +426,7 @@ Any executable can compete: Dedale runs paths that do not end in `.py` as
 programs and talks to them in JSON lines over stdin and stdout. See
 [`docs/protocol.md`](docs/protocol.md).
 
-## Development
+## Development and tests
 
 `scripts/check.sh` runs every gate: rustfmt, clippy (pedantic), the Rust and
 Python tests, the browser app's checks and tests (Node 22 or later) and its
@@ -403,6 +434,16 @@ end-to-end tests in headless Chromium, a stable-toolchain build and
 `cargo deny`; `--fuzz <seconds>` also runs each fuzz
 target. The browser app's compiled files (`web/dist/`) are committed, so
 building Dedale itself needs only Cargo.
+
+The suites one by one:
+
+| Suite | Command | What it covers |
+|---|---|---|
+| Rust | `cargo test --workspace --all-features` | Unit and property tests (generator, rules, protocol, replay, stats), and integration tests that play real games with Python bots and a scripted fake bot: timeouts, crashes, the sandbox, the CLI, the web server |
+| Python | `cd bindings/python && python3 -m unittest discover -s tests -t .` | The harness driven through its pipes, and the `dedale` API |
+| Browser app | `cd web && npm ci && npm run check && npm test` | Type checks, lint, and the app's data layer on fixtures written by the Rust tests |
+| End to end | `cd web && npm run e2e` (after the Rust tests, whose debug build it drives) | The `dedale` binary and the app in headless Chromium (`DEDALE_CHROMIUM` picks the browser): browsing results, replays, live games |
+| Fuzzing | `scripts/check.sh --fuzz 60` (seconds per target) | The parsers and decoders (bot lines, maze codes, map files, replays, HTTP requests), the generator and the game engine, with cargo-fuzz on nightly |
 
 GitHub Actions runs the same script on every push to `master` and every
 pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), on

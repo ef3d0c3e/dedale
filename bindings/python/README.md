@@ -4,6 +4,9 @@ The API Python bots use to play [Dedale](../../README.md). Dedale embeds this
 package and runs bots through it, so nothing needs installing to compete;
 `pip install -e bindings/python` only gives editors completion and types.
 
+New to Dedale? [Writing a bot](../../docs/writing-a-bot.md) walks from an
+empty file to a competitive bot; this page is the reference.
+
 ## A bot
 
 ```python
