@@ -14,15 +14,17 @@ move. Dedale records every game as a replay with full timing and error
 analytics, which it can rewind turn by turn, in the terminal or in its
 browser app, live or afterwards.
 
+[Install it](#installation), then watch two of the example bots race:
+
 ```sh
-cargo build --release
-./target/release/dedale run examples/python/greedy_bot.py examples/python/tour_bot.py --watch --delay 50
+dedale run examples/python/greedy_bot.py examples/python/tour_bot.py --watch --delay 50
 ```
 
 Want to write a bot? Start with [Writing a bot](docs/writing-a-bot.md).
 
 ## Contents
 
+- [Installation](#installation)
 - [Documentation](#documentation)
 - [Rules](#rules): [timing](#timing)
 - [Writing a Python bot](#writing-a-python-bot): [beyond greedy](#beyond-greedy)
@@ -35,6 +37,37 @@ Want to write a bot? Start with [Writing a bot](docs/writing-a-bot.md).
 - [Analytics](#analytics)
 - [Other languages](#other-languages)
 - [Development and tests](#development-and-tests)
+
+## Installation
+
+**Prebuilt.** Each [release](https://github.com/ef3d0c3e/dedale/releases)
+has an archive per platform with the `dedale` binary (the browser app and
+the Python harness are built in, so bots need only Python 3.10 or later),
+the docs, the example bots, and the Python package for editors:
+
+| Platform | Archive |
+|---|---|
+| Linux x86_64 (static: any distribution) | `dedale-x86_64-unknown-linux-musl.tar.gz` |
+| Linux arm64 (static) | `dedale-aarch64-unknown-linux-musl.tar.gz` |
+| macOS, Apple silicon | `dedale-aarch64-apple-darwin.tar.gz` |
+| macOS, Intel | `dedale-x86_64-apple-darwin.tar.gz` |
+
+```sh
+curl -fsSL https://github.com/ef3d0c3e/dedale/releases/latest/download/dedale-x86_64-unknown-linux-musl.tar.gz | tar xz
+cd dedale-x86_64-unknown-linux-musl
+./dedale run examples/python/greedy_bot.py examples/python/tour_bot.py --watch --delay 50
+```
+
+`SHA256SUMS`, next to the archives, lists their checksums. The binaries are
+not signed: on macOS, one downloaded with a browser is quarantined, and
+`xattr -d com.apple.quarantine dedale` clears it (curl does not quarantine).
+On Windows, use the Linux archive in WSL. The sandbox (`--sandbox`) runs on
+Linux only.
+
+**From source**, with a [Rust toolchain](https://rustup.rs): in a clone,
+`cargo install --locked --path crates/dedale` puts `dedale` on your PATH
+(or `cargo build --release` builds `target/release/dedale`). The browser app
+comes compiled in the repository, so Node is not needed.
 
 ## Documentation
 
@@ -449,6 +482,17 @@ GitHub Actions runs the same script on every push to `master` and every
 pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), on
 Ubuntu 24.04 with a pinned Rust, the runner's Chrome, and bubblewrap so
 that the sandbox tests run (`DEDALE_REQUIRE_SANDBOX=1` makes them fail
-rather than skip when the sandbox cannot start).
+rather than skip when the sandbox cannot start). A macOS job builds
+`dedale` and plays a game with it (the tests themselves need Linux).
+
+**Releases.** Set the new version in `Cargo.toml` and
+`bindings/python/pyproject.toml`, commit, then tag and push the tag
+(`git tag v0.2.0 && git push origin v0.2.0`). The
+[release workflow](.github/workflows/release.yml) checks that the tag and
+both versions agree, runs the CI checks, builds `dedale` for each platform
+(`--profile dist`: thin LTO, stripped), has each binary play and verify a
+game, and drafts a GitHub release with the archives and `SHA256SUMS`, to
+review and publish. Run by hand (Actions, Release, Run workflow), it builds
+the archives as workflow artifacts and releases nothing.
 
 License: MIT.

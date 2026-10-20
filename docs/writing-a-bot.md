@@ -20,20 +20,22 @@ same game through a [small protocol](protocol.md).
 
 - **Python 3.10 or later**, standard library only: nothing to install for
   your bot.
-- **Dedale**, built from a clone of this repository with a
-  [Rust toolchain](https://rustup.rs):
+- **Dedale**: the archive for your platform from the
+  [releases](https://github.com/ef3d0c3e/dedale/releases) (see
+  [Installation](../README.md#installation)), or built from a clone of this
+  repository with a [Rust toolchain](https://rustup.rs):
 
   ```sh
   cargo install --locked --path crates/dedale   # puts `dedale` on your PATH
   ```
 
-  (or `cargo build --release` and use `./target/release/dedale`). The
-  Python side of Dedale is built into the binary.
+  The Python side of Dedale is built into the binary.
 - Optionally, completion and types in your editor:
-  `pip install -e bindings/python`.
+  `pip install -e bindings/python` (the folder is in the archives too).
 
-The commands below run from the repository root, where the example bots
-live in `examples/python/`.
+The commands below run from the repository root or the extracted archive,
+where the example bots live in `examples/python/`, with `dedale` on your
+PATH (or `./dedale` in the archive).
 
 ## The game in one minute
 

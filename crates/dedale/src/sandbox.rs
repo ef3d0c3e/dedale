@@ -14,7 +14,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+#[cfg(target_os = "linux")]
 use nix::sched::{CpuSet, sched_getaffinity, sched_setaffinity};
+#[cfg(target_os = "linux")]
 use nix::unistd::Pid;
 use thiserror::Error;
 
@@ -266,15 +268,20 @@ fn check(command: &mut Command, what: &str) -> Result<(), SandboxError> {
     }
 }
 
-/// The CPUs this process may run on, in order.
+/// The CPUs this process may run on, in order; none known off Linux.
 #[must_use]
 pub fn allowed_cpus() -> Vec<usize> {
-    let Ok(set) = sched_getaffinity(Pid::from_raw(0)) else {
-        return Vec::new();
-    };
-    (0..CpuSet::count())
-        .filter(|&cpu| set.is_set(cpu).unwrap_or(false))
-        .collect()
+    #[cfg(target_os = "linux")]
+    {
+        let Ok(set) = sched_getaffinity(Pid::from_raw(0)) else {
+            return Vec::new();
+        };
+        (0..CpuSet::count())
+            .filter(|&cpu| set.is_set(cpu).unwrap_or(false))
+            .collect()
+    }
+    #[cfg(not(target_os = "linux"))]
+    Vec::new()
 }
 
 /// A CPU for each of `bots` bots: on separate physical cores when there
@@ -321,7 +328,9 @@ fn parse_cpu_list(list: &str) -> Vec<usize> {
 }
 
 /// Keeps this process off the bots' CPUs when others remain, so Dedale
-/// never takes their time. Threads started afterwards follow.
+/// never takes their time. Threads started afterwards follow. Linux only,
+/// like the sandbox.
+#[cfg(target_os = "linux")]
 pub fn keep_off(cpus: &[usize]) {
     let mut set = CpuSet::new();
     let mut any = false;
@@ -332,6 +341,9 @@ pub fn keep_off(cpus: &[usize]) {
         let _ = sched_setaffinity(Pid::from_raw(0), &set);
     }
 }
+
+#[cfg(not(target_os = "linux"))]
+pub fn keep_off(_cpus: &[usize]) {}
 
 #[cfg(test)]
 mod tests {

@@ -1,6 +1,7 @@
 # Every quality gate of scripts/check.sh, on each push to master and each
 # pull request: rustfmt, clippy, the Rust and Python tests, the web checks,
-# the browser end to end, cargo-deny. Third-party actions are pinned by
+# the browser end to end, cargo-deny. Plus a macOS build that plays a game.
+# The release workflow calls it first. Third-party actions are pinned by
 # commit.
 name: CI
 
@@ -9,12 +10,13 @@ on:
     branches: [master]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -81,3 +83,34 @@ jobs:
 
       - name: scripts/check.sh
         run: scripts/check.sh
+
+  # The tests read /proc and run the Linux sandbox, so macOS gets a build and
+  # a real game instead: enough to catch what would break its prebuilt binary.
+  macos:
+    name: macOS build
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Rust ${{ env.RUST_VERSION }}
+        run: |
+          rustup toolchain install "$RUST_VERSION" --profile minimal
+          rustup default "$RUST_VERSION"
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: Build
+        run: cargo build --locked --bin dedale
+
+      - name: Python tests
+        working-directory: bindings/python
+        run: python3 -m unittest discover -s tests -t .
+
+      - name: Play a game
+        run: |
+          target/debug/dedale run examples/python/greedy_bot.py examples/python/tour_bot.py \
+              --max-turns 100 --out "$RUNNER_TEMP/game"
+          target/debug/dedale replay --verify "$RUNNER_TEMP/game/replay.json"

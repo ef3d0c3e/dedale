@@ -1,0 +1,159 @@
+# Prebuilt Dedale. On a version tag (v0.2.0): every CI check, then a build
+# for each platform (static on Linux), each playing and verifying a game,
+# then a draft GitHub release with one archive per platform and their
+# checksums, to review and publish. Run by hand, it builds the archives as
+# workflow artifacts and releases nothing.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # As in CI.
+  RUST_VERSION: "1.95.0"
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: The same version everywhere
+        id: version
+        run: |
+          crate=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
+          python=$(sed -n 's/^version = "\(.*\)"$/\1/p' bindings/python/pyproject.toml | head -n 1)
+          if [ "$crate" != "$python" ]; then
+            echo "::error::Cargo.toml says $crate, bindings/python/pyproject.toml $python"
+            exit 1
+          fi
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$crate" ]; then
+            echo "::error::the tag is $GITHUB_REF_NAME, but the version is $crate"
+            exit 1
+          fi
+          echo "version=$crate" >> "$GITHUB_OUTPUT"
+
+  check:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: [version, check]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-24.04
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-24.04-arm
+          - target: aarch64-apple-darwin
+            os: macos-15
+          - target: x86_64-apple-darwin
+            os: macos-15-intel
+    env:
+      TARGET: ${{ matrix.target }}
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Rust ${{ env.RUST_VERSION }} for ${{ matrix.target }}
+        run: |
+          rustup toolchain install "$RUST_VERSION" --profile minimal --target "$TARGET"
+          rustup default "$RUST_VERSION"
+
+      - name: musl tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends musl-tools
+
+      - name: Build
+        run: cargo build --profile dist --locked --target "$TARGET" --bin dedale
+
+      - name: Play and verify a game with it
+        run: |
+          dedale="target/$TARGET/dist/dedale"
+          test "$("$dedale" --version)" = "dedale $VERSION"
+          "$dedale" run examples/python/greedy_bot.py examples/python/tour_bot.py \
+              --max-turns 100 --out "$RUNNER_TEMP/game"
+          "$dedale" replay --verify "$RUNNER_TEMP/game/replay.json"
+
+      # The repository's layout, so the README's links work: the binary (the
+      # browser app and the Python harness are built in), the docs, the
+      # example bots, and the Python package for editors.
+      - name: Package
+        run: |
+          name="dedale-$TARGET"
+          mkdir -p "dist/$name/examples" "dist/$name/docs" "dist/$name/bindings/python"
+          cp "target/$TARGET/dist/dedale" README.md LICENSE "dist/$name/"
+          cp docs/*.md "dist/$name/docs/"
+          cp -R examples/python "dist/$name/examples/"
+          cp -R bindings/python/README.md bindings/python/pyproject.toml bindings/python/dedale \
+              "dist/$name/bindings/python/"
+          find "dist/$name" -name __pycache__ -prune -exec rm -rf {} +
+          tar -C dist -czf "$name.tar.gz" "$name"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dedale-${{ matrix.target }}
+          path: dedale-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Draft the release
+    if: github.ref_type == 'tag'
+    needs: [version, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dedale-*
+          merge-multiple: true
+          path: assets
+
+      - name: Checksums
+        working-directory: assets
+        run: sha256sum -- *.tar.gz > SHA256SUMS
+
+      - name: Draft the release
+        run: |
+          cat > notes.md <<EOF
+          Prebuilt \`dedale\` $VERSION. Download the archive for your platform:
+
+          | Platform | Archive |
+          |---|---|
+          | Linux x86_64 (static, any distribution) | \`dedale-x86_64-unknown-linux-musl.tar.gz\` |
+          | Linux arm64 (static) | \`dedale-aarch64-unknown-linux-musl.tar.gz\` |
+          | macOS, Apple silicon | \`dedale-aarch64-apple-darwin.tar.gz\` |
+          | macOS, Intel | \`dedale-x86_64-apple-darwin.tar.gz\` |
+
+          Each holds the \`dedale\` binary (the browser app and the Python
+          harness are built in: bots need only Python 3.10 or later), the
+          docs, the example bots, and the Python package for editors.
+          \`SHA256SUMS\` lists the archives' checksums.
+          EOF
+          gh release create "$GITHUB_REF_NAME" assets/* \
+              --repo "$GITHUB_REPOSITORY" --verify-tag --draft \
+              --title "Dedale $VERSION" --notes-file notes.md --generate-notes

@@ -26,3 +26,11 @@ unreachable_pub = "warn"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
+
+# The prebuilt binaries of the release workflow: smaller and a little faster
+# than `release`, for a longer build.
+[profile.dist]
+inherits = "release"
+lto = "thin"
+codegen-units = 1
+strip = true
