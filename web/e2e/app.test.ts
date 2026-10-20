@@ -113,6 +113,21 @@ test("browsing results: runs, a game, a tournament", async () => {
     await page.waitFor(`${head}.includes("turn 12 / 12")`);
     assert.deepEqual(await pixel(60, 20), floor, "a collected cell is plain floor");
     assert.match(await page.text(".panel.player-0"), /exit/);
+    // The problems strip: a click goes to the turn the thumb would show there.
+    const strip = "document.querySelector('canvas.markers')";
+    assert.equal(
+      await page.eval<boolean>(`${strip}.hidden`),
+      false,
+      "the golden game has problems",
+    );
+    await page.eval(`(() => {
+      const box = ${strip}.getBoundingClientRect();
+      const x = box.left + 8 + (7 / 12) * (box.width - 16);
+      ${strip}.dispatchEvent(new MouseEvent("click", { clientX: x, clientY: box.top + 3 }));
+    })()`);
+    await page.waitFor(`${head}.includes("turn 7 / 12")`);
+    await page.press("End", "End", 35);
+    await page.waitFor(`${head}.includes("turn 12 / 12")`);
     // Charts (uPlot): three, with the scanner on the turn shown.
     await page.waitFor("document.querySelectorAll('.charts .uplot').length === 3");
     const scanner = "document.querySelector('.charts .scanner')";
@@ -261,6 +276,16 @@ test("a live run: started, paced and assembled by the page", async () => {
     const written = JSON.parse(readFileSync(join(out, "replay.json"), "utf8"));
     assert.deepEqual(JSON.parse(streamed), written);
     assert.equal(written.turns.length, 40);
+    const problems =
+      written.events.some((e: { kind: string }) => e.kind === "late") ||
+      written.turns.some((t: { players: { outcome: string }[] }) =>
+        t.players.some((p) => p.outcome !== "ok"),
+      );
+    assert.equal(
+      await page.eval<boolean>("document.querySelector('canvas.markers').hidden"),
+      !problems,
+      "a strip only with problems",
+    );
     assert.deepEqual(page.errors, []);
   } finally {
     assert.equal(await dedale.stop(), 0);

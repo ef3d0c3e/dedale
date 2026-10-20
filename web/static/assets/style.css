@@ -279,6 +279,10 @@ ul.about .description {
   cursor: pointer;
 }
 
+.markers[hidden] {
+  display: none;
+}
+
 .stats {
   margin-top: 1rem;
   overflow-x: auto;

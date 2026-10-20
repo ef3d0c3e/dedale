@@ -8,6 +8,9 @@ import { MazeCanvas } from "./canvas.js";
 import { advance, DEFAULT_SPEED, SPEEDS, step } from "./playback.js";
 import { markers, nextProblem, previousProblem, problemStarts, } from "./timeline.js";
 const MARKER_ROW = 7;
+/** Half the turn slider's thumb (16 px in Chromium and Firefox): its centre
+ * runs from this far in to this far before the end, and so do the markers. */
+const THUMB_HALF = 8;
 const KIND_COLOURS = {
     illegal: "--kind-illegal",
     invalid: "--kind-invalid",
@@ -80,10 +83,15 @@ export class GameView {
                 this.speed = Number(speed.value);
             },
         }, SPEEDS.map((s) => h("option", { value: s, selected: s === DEFAULT_SPEED }, `${s}/s`)));
-        this.strip = h("canvas", { class: "markers", height: MARKER_ROW * 2 });
+        this.strip = h("canvas", {
+            class: "markers",
+            height: MARKER_ROW * 2,
+            title: "Problems, a row per player: click one to go to its turn",
+        });
         this.strip.addEventListener("click", (event) => {
             const box = this.strip.getBoundingClientRect();
-            const share = (event.clientX - box.left) / Math.max(1, box.width);
+            const span = Math.max(1, box.width - 2 * THUMB_HALF);
+            const share = (event.clientX - box.left - THUMB_HALF) / span;
             this.pause();
             this.setTurn(Math.round(share * this.last));
         });
@@ -134,7 +142,6 @@ export class GameView {
         this.turnLabel.textContent = `turn ${this.turn} / ${this.last}`;
         this.renderHead();
         this.draw();
-        this.drawStrip();
         this.options.onShow?.(this.turn);
         if (!playing)
             this.options.onTurn?.(this.turn);
@@ -254,7 +261,11 @@ export class GameView {
             ? h("div", { class: "result" }, describeResult(end.result, config.seating, players.map((p) => p.name)))
             : null);
     }
+    /** The problems under the slider, each where the thumb shows its turn; hidden without any. */
     drawStrip() {
+        this.strip.hidden = this.found.length === 0;
+        if (this.strip.hidden)
+            return;
         const width = this.range.clientWidth || 600;
         const dpr = window.devicePixelRatio || 1;
         const rows = Math.max(1, this.data.players.length);
@@ -269,14 +280,13 @@ export class GameView {
         ctx.clearRect(0, 0, width, rows * MARKER_ROW);
         const style = getComputedStyle(document.documentElement);
         const last = Math.max(1, this.last);
-        const tick = Math.max(1, width / last);
+        const span = Math.max(1, width - 2 * THUMB_HALF);
+        const tick = Math.max(1, span / last);
         for (const marker of this.found) {
             ctx.fillStyle = style.getPropertyValue(KIND_COLOURS[marker.kind]).trim();
-            const x = ((marker.turn - 0.5) / last) * width;
+            const x = THUMB_HALF + ((marker.turn - 0.5) / last) * span;
             ctx.fillRect(x, marker.player * MARKER_ROW + 1, tick, MARKER_ROW - 2);
         }
-        ctx.fillStyle = style.getPropertyValue("--fg").trim();
-        ctx.fillRect((this.turn / last) * width - 0.5, 0, 1, rows * MARKER_ROW);
     }
     renderStats() {
         const end = this.data.end;

@@ -310,9 +310,10 @@ ones a bot played. A file Dedale cannot read is listed with the reason.
 - the **header**: turn and turn limit, points left, scores, maze code, and
   the result.
 - the **timeline**: a scrubber, step and play buttons, the playback speed,
-  and a strip of markers per player for every turn that went wrong
-  (illegal move, unreadable answer, error, timeout, not ready, crash, late
-  answer). Click the strip to go there.
+  and, under the scrubber, a strip of markers per player for every turn
+  that went wrong (illegal move, unreadable answer, error, timeout, not
+  ready, crash, late answer), each under the scrubber's place for its turn;
+  no strip when nothing went wrong. Click the strip to go there.
 - the **inspector**, per player: the move asked for and applied, the
   outcome, latency against the move budget, time inside `move()`,
   position, score, and what the bot logged, marked or raised (with its
