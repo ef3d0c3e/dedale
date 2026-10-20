@@ -80,12 +80,29 @@ turn costs turns, never synchronization.
 `print()` and `dedale.log(...)` (same arguments as `print`) are captured per
 call and stored in the replay, where `dedale replay` shows them turn by turn.
 
-`dedale.mark(cells, label=None, color=None)` highlights cells for this call,
-such as a planned path or a target. The replay viewer draws them over the maze.
+Two calls draw on the maze for the current call, in the browser app and the
+terminal views:
 
-Per call, Dedale keeps 4 KiB of log, 64 marks and 4096 marked cells, and
-labels and colours of up to 64 bytes. Anything beyond is dropped and the log
-ends with `[truncated]`. Marked cells outside the maze are dropped.
+- `dedale.mark(cells, label=None, color=None)` highlights cells, such as
+  targets or a region.
+- `dedale.path(cells, label=None, color=None)` draws a line through cells in
+  order, such as the route you plan; consecutive cells should be neighbours.
+
+```python
+from dedale import Color
+
+dedale.path(route, label="plan", color=Color.TEAL)
+dedale.mark(dangers, label="opponent's", color="red")
+```
+
+`color` is one of the eight `Color` members (`RED`, `ORANGE`, `YELLOW`,
+`GREEN`, `TEAL`, `BLUE`, `PURPLE`, `PINK`) or their names in any case;
+without one, marks take your player's colour. The app picks shades that read
+well in light and dark themes. Any other colour raises `ValueError`.
+
+Per call, Dedale keeps 4 KiB of log, 64 marks (paths included), 4096 marked
+cells and labels of up to 64 bytes. Anything beyond is dropped and the log
+ends with `[truncated]`. Cells outside the maze are dropped.
 
 ### Errors
 

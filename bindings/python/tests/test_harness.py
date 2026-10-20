@@ -265,6 +265,7 @@ class HarnessTests(unittest.TestCase):
 
             def move():
                 dedale.mark([(0, 0), (1, 0), (99, 99), (-1, 0)], label="path")
+                dedale.path([(0, 0), (1, 0)], color="blue")
                 for _ in range(100):
                     dedale.mark([(2, 0)])
                 return "stay"
@@ -275,7 +276,8 @@ class HarnessTests(unittest.TestCase):
             reply = bot.recv()
             marks = reply["marks"]
             self.assertEqual(len(marks), 64)
-            self.assertEqual(marks[0], {"cells": [[0, 0], [1, 0]], "label": "path", "color": None})
+            self.assertEqual(marks[0], {"cells": [[0, 0], [1, 0]], "label": "path", "color": None, "kind": "cells"})
+            self.assertEqual(marks[1], {"cells": [[0, 0], [1, 0]], "label": None, "color": "blue", "kind": "path"})
             self.assertEqual(reply["log"], ["[truncated]"])
 
     def test_raw_stdout_and_stdin_stay_private(self):

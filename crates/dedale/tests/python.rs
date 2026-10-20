@@ -13,6 +13,7 @@ use dedale_core::code::MazeCode;
 use dedale_core::game::{EndReason, Outcome, Seating};
 use dedale_core::generator::generate;
 use dedale_core::maze::Maze;
+use dedale_core::protocol::{MarkColor, MarkKind};
 use dedale_core::record::{EventKind, GameRecord, StartupOutcome};
 
 const RING: &str = "_....\n.###.\n.###.\n.###.\n...._\n";
@@ -28,6 +29,7 @@ def init():
 
 def move():
     dedale.mark([dedale.me.pos], label="me")
+    dedale.path([dedale.me.pos, (0, 0)], label="home", color="teal")
     return LAP[(dedale.turn - 1) % len(LAP)]
 "#;
 
@@ -76,6 +78,10 @@ fn a_python_bot_clears_the_ring() {
         assert_eq!(p.outcome, Outcome::Ok);
         assert!(p.think_us.is_some());
         assert_eq!(p.marks[0].label.as_deref(), Some("me"));
+        assert_eq!(
+            (p.marks[0].kind, p.marks[1].kind, p.marks[1].color),
+            (MarkKind::Cells, MarkKind::Path, Some(MarkColor::Teal))
+        );
     }
     let exit = record.players[0].exit.as_ref().unwrap();
     assert_eq!((exit.code, exit.killed), (Some(0), false), "{exit:?}");
@@ -100,7 +106,8 @@ fn greedy_clears_a_full_size_maze() {
         record
             .turns
             .iter()
-            .all(|t| t.players[0].marks[0].label.as_deref() == Some("path"))
+            .all(|t| t.players[0].marks[0].label.as_deref() == Some("path")
+                && t.players[0].marks[0].kind == MarkKind::Path)
     );
 }
 

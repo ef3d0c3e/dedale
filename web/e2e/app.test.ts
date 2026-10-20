@@ -32,6 +32,19 @@ function results(): string {
   put(join(root, "cup/games/002/replay.json"), golden);
   const hostile = JSON.parse(golden);
   hostile.turns[0].players[0].log = [HOSTILE];
+  hostile.turns[0].players[0].marks = [
+    {
+      cells: [
+        [0, 0],
+        [1, 0],
+        [2, 0],
+      ],
+      label: "route",
+      color: "teal",
+      kind: "path",
+    },
+    { cells: [[3, 4]], label: null, color: "red" },
+  ];
   put(join(root, "hostile/replay.json"), JSON.stringify(hostile));
   put(join(root, "broken/replay.json"), "not json");
   return root;
@@ -100,6 +113,16 @@ test("browsing results: runs, a game, a tournament", async () => {
     );
     assert.equal(await page.eval<number>("document.querySelectorAll('main img').length"), 0);
     assert.notEqual(await page.eval<string>("document.title"), "pwned");
+
+    // Marks: a teal line between the first cells' centres, a red cell.
+    assert.match(await page.text(".panel.player-0 .marks"), /route: a path through 3 cells/);
+    const [r, g, b] = await pixel(35, 20);
+    assert.ok(r !== undefined && g !== undefined && b !== undefined);
+    assert.ok(r < g && r < b, `teal-ish: ${[r, g, b]}`);
+    const [r2, g2, b2] = await pixel(123, 163);
+    assert.ok(r2 !== undefined && g2 !== undefined && b2 !== undefined);
+    assert.ok(r2 > g2 && r2 > b2, `red-ish: ${[r2, g2, b2]}`);
+    assert.notDeepEqual(await pixel(35, 20), floor);
 
     // A tournament, one of its games, and back.
     await page.goto(`${dedale.url}#/tournament/cup/tournament.json`);

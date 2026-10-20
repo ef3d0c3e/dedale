@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { markColour } from "../src/game/canvas.ts";
 import { fromRecord, type GameData } from "../src/game/data.ts";
 import { exitSummary, inspect } from "../src/game/inspect.ts";
+import { describeMark } from "../src/game/inspector.ts";
 import type { GameRecord } from "../src/types.ts";
 import { parseReplay } from "../src/validate.ts";
 import { damaged, fixture, type Loose } from "./load.ts";
@@ -131,11 +131,23 @@ test("hostile text stays text", () => {
   const [a] = inspect(game, 1);
   assert.deepEqual(a?.log, [hostile], "passed on verbatim, for the page to show as text");
   assert.equal(a?.marks[0]?.label, hostile);
-  assert.equal(markColour("red;background:url(x)"), null);
-  assert.equal(markColour("url(x)"), null);
-  assert.equal(markColour("#12345"), null);
-  assert.equal(markColour("#abc"), "#abc");
-  assert.equal(markColour("#a1b2c3d4"), "#a1b2c3d4");
-  assert.equal(markColour("tomato"), "tomato");
-  assert.equal(markColour(null), null);
+  // Only palette names reach the page's styles.
+  assert.equal(a?.marks[0]?.color, null);
+});
+
+test("marks are described with their kind", () => {
+  assert.equal(
+    describeMark({
+      cells: [
+        [0, 0],
+        [1, 0],
+        [2, 0],
+      ],
+      label: "route",
+      color: "teal",
+      kind: "path",
+    }),
+    "route: a path through 3 cells",
+  );
+  assert.equal(describeMark({ cells: [[4, 4]], label: null, color: null }), "unlabelled: 1 cell");
 });

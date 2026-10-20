@@ -29,7 +29,7 @@ def move():
     while queue:
         cell = queue.popleft()
         if cell in dedale.points:
-            dedale.mark(path_to(cell, parent), label="path")
+            dedale.path(path_to(cell, parent), label="path")
             return first[cell]
         for step, next_cell in neighbors[cell]:
             if next_cell not in first:

@@ -30,6 +30,11 @@ sending the turn to reading the answer), `think_us` (the bot's), `pos` after
 the turn, `gained` and `half_points`, `log`, `marks`, `error`, and `invalid`
 (why an answer was rejected).
 
+Marks are stored as the [protocol](protocol.md#messages-from-the-bot)
+describes them: `cells`, `label`, `color` (a palette name or `null`), and
+`kind`, written only for paths (`"kind": "path"`); a mark without it
+highlights cells.
+
 The state after turn *t* is the initial maze minus every `collected` cell up
 to *t*, with the players at the positions stored in turn *t*: rewinding needs
 no simulation.

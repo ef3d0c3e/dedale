@@ -107,6 +107,14 @@ main {
   --kind-not-ready: #868e96;
   --kind-crashed: #862e2e;
   --kind-late: #0ca678;
+  --mark-red: #e03131;
+  --mark-orange: #f76707;
+  --mark-yellow: #e8b100;
+  --mark-green: #2f9e44;
+  --mark-teal: #0c8599;
+  --mark-blue: #1971c2;
+  --mark-purple: #9c36b5;
+  --mark-pink: #d6336c;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -120,6 +128,14 @@ main {
     --on-player: #101014;
     --mark: #f0f0f4;
     --kind-crashed: #ff6b6b;
+    --mark-red: #ff6b6b;
+    --mark-orange: #ffa94d;
+    --mark-yellow: #ffd43b;
+    --mark-green: #69db7c;
+    --mark-teal: #3bc9db;
+    --mark-blue: #74c0fc;
+    --mark-purple: #da77f2;
+    --mark-pink: #f783ac;
   }
 }
 
@@ -351,6 +367,13 @@ pre.scroll {
   margin-right: 0.35em;
   border-radius: 2px;
   vertical-align: -0.05em;
+}
+
+.swatch.line {
+  width: 1.1em;
+  height: 0.22em;
+  border-radius: 1em;
+  vertical-align: 0.2em;
 }
 
 .charts {

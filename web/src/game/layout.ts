@@ -28,6 +28,11 @@ export function cellAt(layout: Layout, px: number, py: number): [number, number]
   return px >= 0 && py >= 0 && x < layout.cols && y < layout.rows ? [x, y] : null;
 }
 
+/** The centre of a cell. */
+export function cellCentre(layout: Layout, x: number, y: number): [number, number] {
+  return [(x + 0.5) * layout.cell, (y + 0.5) * layout.cell];
+}
+
 /** The top-left corner of a cell. */
 export function cellOrigin(layout: Layout, x: number, y: number): [number, number] {
   return [x * layout.cell, y * layout.cell];

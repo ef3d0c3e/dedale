@@ -86,7 +86,7 @@ def move():
     while queue:
         cell = queue.popleft()
         if cell in dedale.points:
-            dedale.mark(path_to(cell, parent), label="path")
+            dedale.path(path_to(cell, parent), label="path")
             return first[cell]
         for step, next_cell in neighbors[cell]:
             if next_cell not in first:
@@ -116,7 +116,9 @@ What the `dedale` module offers (full reference in
 | `dedale.move_timeout`, `dedale.startup_timeout` | Budgets, in seconds |
 | `dedale.time_left()` | Seconds left in the current call |
 | `dedale.log(...)` | Like `print()`; both end up in the replay |
-| `dedale.mark(cells, label=None, color=None)` | Highlight cells (a planned path, a target) in the replay |
+| `dedale.mark(cells, label=None, color=None)` | Highlight cells (a target, a region) in the replay and the viewers |
+| `dedale.path(cells, label=None, color=None)` | Draw a line through cells, in order (the route you plan) |
+| `Color.RED`, …, `Color.PINK` | The 8 colours of marks and paths (names like `"teal"` work too); without one, your player's colour |
 | `Move.UP`, `Move.DOWN`, `Move.LEFT`, `Move.RIGHT`, `Move.STAY` | What `move()` returns (a string like `"up"` works too) |
 
 Anything else `move()` returns, or an exception, counts as a `stay` and is
@@ -159,7 +161,8 @@ dedale tournament examples/python/rollout_bot.py examples/python/greedy_bot.py -
 ```
 
 Add `--points 100` for sparse mazes, and `--view` to watch them think: the
-inspector shows `tour_bot`'s route and `rollout_bot`'s playouts as marks.
+maze shows `tour_bot`'s route and next stops, and `rollout_bot`'s playout,
+as each bot draws them.
 
 ## Commands
 
@@ -270,7 +273,8 @@ ones a bot played. A file Dedale cannot read is listed with the reason.
   traceback), plus late or ignored answers. Turn 0 shows the startup
   (ready in time or not, import and `init()` time, its log and errors);
   the last turn shows how each bot exited and the end of its stderr. Pick
-  whose marks are drawn on the maze.
+  whose marks are drawn on the maze: highlighted cells and path lines, in
+  the colours the bot chose.
 - **heatmaps** under the maze: how often each player stood on each cell, or
   which player took each point, shaded by the order they were taken in.
 - **charts**: latency and time inside `move()` per turn (log scale, the move

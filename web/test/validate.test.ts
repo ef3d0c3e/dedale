@@ -61,6 +61,39 @@ test("damaged replays are refused with the field at fault", () => {
   assert.throws(() => parseReplay([]), { message: "the file: expected an object, found an array" });
 });
 
+test("marks keep palette colours and paths, and read anything else as Dedale does", () => {
+  const marked = damaged(replay, (r) => {
+    r.turns[0].players[0].marks = [
+      {
+        cells: [
+          [0, 0],
+          [1, 0],
+        ],
+        label: "route",
+        color: "teal",
+        kind: "path",
+      },
+      { cells: [[2, 0]], label: null, color: "magenta", kind: "circle" },
+      { cells: [[3, 0]], label: null, color: "#ff0000" },
+      { cells: [[4, 0]], label: null },
+    ];
+  });
+  assert.deepEqual(parseReplay(marked).turns[0]?.players[0]?.marks, [
+    {
+      cells: [
+        [0, 0],
+        [1, 0],
+      ],
+      label: "route",
+      color: "teal",
+      kind: "path",
+    },
+    { cells: [[2, 0]], label: null, color: null },
+    { cells: [[3, 0]], label: null, color: null },
+    { cells: [[4, 0]], label: null, color: null },
+  ]);
+});
+
 test("damaged tournaments are refused", () => {
   const tournament = fixture("tournament.json");
   assert.throws(() => parseTournament(damaged(tournament, (t) => (t.format = 9))), /format 9/);

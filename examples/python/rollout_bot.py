@@ -78,6 +78,25 @@ def toward_nearest(start, points):
     return start
 
 
+def nearest_path(start, points):
+    """The cells from start to its nearest point (for drawing)."""
+    parent = {start: None}
+    queue = deque([start])
+    while queue:
+        here = queue.popleft()
+        if here in points and here != start:
+            way = []
+            while here is not None:
+                way.append(here)
+                here = parent[here]
+            return way[::-1]
+        for nxt in adjacent[here]:
+            if nxt not in parent:
+                parent[nxt] = here
+                queue.append(nxt)
+    return [start]
+
+
 def playout(mine, theirs, points, turns_left, deadline):
     """How the game goes if I step to `mine` and then both players walk
     greedily, up to its end or `turns_left` turns: (lead in half-points,
@@ -119,6 +138,7 @@ def move():
     recent.append(me)
     if calm > 0 or rest > 0 or greedy == me:
         calm, rest = max(0, calm - 1), max(0, rest - 1)
+        dedale.path([pos(c) for c in nearest_path(me, points)], label="greedy")
         return step_to.get((me, greedy), Move.STAY)
 
     # Leave a margin of the move budget for answering.
@@ -142,7 +162,7 @@ def move():
             best, best_end = nxt, end
     if best != greedy:
         dedale.log(f"{summary(best_end)}; greedy's move: {summary(greedy_end)}")
-    dedale.mark([pos(c) for c in best_end[2]], label="playout")
+    dedale.path([dedale.me.pos, *(pos(c) for c in best_end[2])], label="playout")
     return step_to[(me, best)]
 
 

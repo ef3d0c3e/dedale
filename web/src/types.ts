@@ -8,10 +8,26 @@ export type Seating = "solo" | "duo" | "duo_swapped";
 export type EndReason = "cleared" | "abandoned" | "turn_limit";
 export type StartupOutcome = "ok" | "late" | "init_error" | "timeout" | "crashed";
 
+/** The colours a mark can take; the app chooses the shades per theme. */
+export const MARK_COLORS = [
+  "red",
+  "orange",
+  "yellow",
+  "green",
+  "teal",
+  "blue",
+  "purple",
+  "pink",
+] as const;
+export type MarkColor = (typeof MARK_COLORS)[number];
+
 export interface Mark {
   cells: Pos[];
   label: string | null;
-  color: string | null;
+  /** `null`: the player's colour. */
+  color: MarkColor | null;
+  /** A line through the cells in order; absent for highlighted cells. */
+  kind?: "path";
 }
 
 export interface BotError {

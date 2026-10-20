@@ -2,12 +2,12 @@
 //!
 //! Every cell is two columns wide so the maze looks square in a terminal.
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::fmt::Write;
 
 use dedale_core::game::{Outcome, Snapshot};
 use dedale_core::grid::{Cell, Move, Pos};
-use dedale_core::protocol::Mark;
+use dedale_core::protocol::{Mark, MarkColor, MarkKind};
 use dedale_core::record::TurnRecord;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -38,10 +38,11 @@ pub fn render(frame: &Frame<'_>, style: Style) -> String {
     let mut out = header(frame, style);
     let snapshot = frame.snapshot;
     let board = &snapshot.board;
-    let marked: HashSet<Pos> = frame
+    // The last mark on a cell wins.
+    let marked: HashMap<Pos, &Mark> = frame
         .marks
         .iter()
-        .flat_map(|m| m.cells.iter().copied())
+        .flat_map(|m| m.cells.iter().map(move |&pos| (pos, m)))
         .collect();
     for y in 0..board.height() {
         let mut line = String::new();
@@ -54,7 +55,7 @@ pub fn render(frame: &Frame<'_>, style: Style) -> String {
                 ([i], _) => (player_glyph(*i), if *i == 0 { GREEN } else { RED }),
                 ([_, ..], _) => ("X ", MAGENTA),
                 ([], Cell::Wall) => (if style.ascii { "##" } else { "██" }, ""),
-                ([], _) if marked.contains(&pos) => (if style.ascii { "+ " } else { "∘ " }, CYAN),
+                ([], _) if marked.contains_key(&pos) => mark_glyph(marked[&pos], style),
                 ([], Cell::Point) => (if style.ascii { ". " } else { "· " }, YELLOW),
                 ([], Cell::Empty) => ("  ", ""),
             };
@@ -64,6 +65,28 @@ pub fn render(frame: &Frame<'_>, style: Style) -> String {
         out.push('\n');
     }
     out
+}
+
+/// A marked cell: `∘` for cells, `•` along a path, in the mark's colour.
+fn mark_glyph(mark: &Mark, style: Style) -> (&'static str, &'static str) {
+    let glyph = match (mark.kind, style.ascii) {
+        (MarkKind::Cells, false) => "∘ ",
+        (MarkKind::Cells, true) => "+ ",
+        (MarkKind::Path, false) => "• ",
+        (MarkKind::Path, true) => "* ",
+    };
+    let color = match mark.color {
+        None => CYAN,
+        Some(MarkColor::Red) => "\x1b[31m",
+        Some(MarkColor::Orange) => "\x1b[38;5;208m",
+        Some(MarkColor::Yellow) => "\x1b[33m",
+        Some(MarkColor::Green) => "\x1b[32m",
+        Some(MarkColor::Teal) => "\x1b[38;5;30m",
+        Some(MarkColor::Blue) => "\x1b[34m",
+        Some(MarkColor::Purple) => "\x1b[35m",
+        Some(MarkColor::Pink) => "\x1b[38;5;213m",
+    };
+    (glyph, color)
 }
 
 fn player_glyph(i: usize) -> &'static str {
@@ -161,7 +184,7 @@ mod tests {
     use dedale_core::game::{Game, Input, Outcome, Seating};
     use dedale_core::grid::{Move, Pos};
     use dedale_core::maze::Maze;
-    use dedale_core::protocol::Mark;
+    use dedale_core::protocol::{Mark, MarkColor, MarkKind};
     use dedale_core::record::{PlayerTurnRecord, TurnRecord};
 
     const RING: &str = "_....\n.###.\n.###.\n.###.\n...._\n";
@@ -235,6 +258,7 @@ A · · · ·
             cells: vec![Pos::new(0, 1), Pos::new(0, 2)],
             label: None,
             color: None,
+            kind: MarkKind::Cells,
         }];
         let frame = Frame {
             snapshot: game.snapshot(),
@@ -286,6 +310,54 @@ B random     3.5  up     illegal    850 µs
         );
         assert!(color.contains("\x1b[1;32mA \x1b[0m"));
         assert!(color.contains("\x1b[1;31mB \x1b[0m"));
+    }
+
+    #[test]
+    fn marks_take_their_colour_and_kind() {
+        let game = Game::new(Maze::parse(RING).unwrap(), Seating::Solo, 100);
+        let names = names(1);
+        let marks = [
+            Mark {
+                cells: vec![Pos::new(1, 0), Pos::new(2, 0), Pos::new(3, 0)],
+                label: Some("route".to_owned()),
+                color: Some(MarkColor::Teal),
+                kind: MarkKind::Path,
+            },
+            Mark {
+                cells: vec![Pos::new(4, 2), Pos::new(3, 0)],
+                label: None,
+                color: Some(MarkColor::Pink),
+                kind: MarkKind::Cells,
+            },
+        ];
+        let frame = Frame {
+            snapshot: game.snapshot(),
+            names: &names,
+            max_turns: 100,
+            last: None,
+            marks: &marks,
+        };
+        let plain = render(&frame, Style::default());
+        // The later mark wins (3, 0).
+        assert!(plain.contains("A • • ∘ ·\n"), "{plain}");
+        assert!(plain.contains("· ██████∘\n"), "{plain}");
+        let ascii = render(
+            &frame,
+            Style {
+                ascii: true,
+                color: false,
+            },
+        );
+        assert!(ascii.contains("A * * + .\n"), "{ascii}");
+        let color = render(
+            &frame,
+            Style {
+                ascii: false,
+                color: true,
+            },
+        );
+        assert!(color.contains("\x1b[38;5;30m• \x1b[0m"), "{color}");
+        assert!(color.contains("\x1b[38;5;213m∘ \x1b[0m"), "{color}");
     }
 
     #[test]

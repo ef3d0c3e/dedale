@@ -3,7 +3,7 @@
 import unittest
 
 import dedale
-from dedale import Maze, Move, Player
+from dedale import Color, Maze, Move, Player
 from dedale._harness import MAX_LOG_BYTES, TRUNCATED, Sink, cap_log, normalize
 
 # A corridor ring around a block of walls, 14 points.
@@ -51,8 +51,32 @@ class MarkTests(unittest.TestCase):
     def test_marks_drop_cells_outside_the_maze(self):
         dedale.mark([(0, 0), (4, 4), (5, 0), (-1, 2)], label="path", color="red")
         marks, truncated = dedale._take_marks()
-        self.assertEqual(marks, [{"cells": [[0, 0], [4, 4]], "label": "path", "color": "red"}])
+        self.assertEqual(marks, [{"cells": [[0, 0], [4, 4]], "label": "path", "color": "red", "kind": "cells"}])
         self.assertFalse(truncated)
+        self.assertEqual(dedale._take_marks(), ([], False))
+
+    def test_paths_and_colours(self):
+        dedale.path([(0, 0), (1, 0), (2, 0)], label="route", color=Color.TEAL)
+        dedale.mark([(4, 4)], color="Pink")
+        dedale.mark([(4, 0)])
+        marks, _ = dedale._take_marks()
+        self.assertEqual(
+            marks,
+            [
+                {"cells": [[0, 0], [1, 0], [2, 0]], "label": "route", "color": "teal", "kind": "path"},
+                {"cells": [[4, 4]], "label": None, "color": "pink", "kind": "cells"},
+                {"cells": [[4, 0]], "label": None, "color": None, "kind": "cells"},
+            ],
+        )
+        self.assertEqual([str(c) for c in Color][:3], ["red", "orange", "yellow"])
+        self.assertEqual(len(Color), 8)
+
+    def test_unknown_colours_are_refused(self):
+        for color in ["magenta", "#ff0000", 3]:
+            with self.assertRaisesRegex(ValueError, "color must be one of red, orange"):
+                dedale.mark([(0, 0)], color=color)
+            with self.assertRaises(ValueError):
+                dedale.path([(0, 0)], color=color)
         self.assertEqual(dedale._take_marks(), ([], False))
 
     def test_mark_caps(self):

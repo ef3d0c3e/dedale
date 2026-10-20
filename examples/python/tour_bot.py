@@ -47,26 +47,36 @@ def move():
         stop += 1
     if stop == len(route):
         # No plan, or the opponent took the rest: the nearest point.
-        return walk(lambda cell: cell in dedale.points)
-    dedale.mark(route[stop : stop + 30], label="route")
-    target = route[stop]
-    return walk(lambda cell: cell == target)
+        way = walk(lambda cell: cell in dedale.points)
+    else:
+        target = route[stop]
+        way = walk(lambda cell: cell == target)
+        dedale.mark(route[stop + 1 : stop + 30], label="next stops", color="purple")
+    if len(way) < 2:
+        return Move.STAY
+    dedale.path(way, label="route")
+    return next(step for step, cell in neighbors[way[0]] if cell == way[1])
 
 
 def walk(is_target):
-    """The first move on a shortest path to the nearest cell is_target accepts."""
+    """The cells of a shortest path to the nearest cell is_target accepts,
+    from where the bot stands (just that cell when there is none)."""
     start = dedale.me.pos
-    first = {start: None}
+    parent = {start: None}
     queue = deque([start])
     while queue:
         cell = queue.popleft()
         if is_target(cell) and cell != start:
-            return first[cell]
-        for step, next_cell in neighbors[cell]:
-            if next_cell not in first:
-                first[next_cell] = first[cell] or step
+            way = []
+            while cell is not None:
+                way.append(cell)
+                cell = parent[cell]
+            return way[::-1]
+        for _, next_cell in neighbors[cell]:
+            if next_cell not in parent:
+                parent[next_cell] = cell
                 queue.append(next_cell)
-    return Move.STAY
+    return [start]
 
 
 def distances(source, index):

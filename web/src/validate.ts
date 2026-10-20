@@ -18,6 +18,7 @@ import type {
   LiveGame,
   LiveSnapshot,
   Mark,
+  MarkColor,
   MazeData,
   MazeSource,
   Pace,
@@ -33,6 +34,7 @@ import type {
   TournamentSummary,
   TurnRecord,
 } from "./types.ts";
+import { MARK_COLORS } from "./types.ts";
 
 /** Formats this app reads. */
 export const REPLAY_FORMAT = 1;
@@ -105,7 +107,9 @@ export function obj<T>(shape: { [K in keyof T]-?: Check<T[K]> }): Check<T> {
     const record = value as Record<string, unknown>;
     const out: Record<string, unknown> = {};
     for (const key of Object.keys(shape) as (keyof T & string)[]) {
-      out[key] = shape[key](record[key], field(path, key));
+      const checked = shape[key](record[key], field(path, key));
+      // Optional fields stay absent, as in the file.
+      if (checked !== undefined) out[key] = checked;
     }
     return out as T;
   };
@@ -121,10 +125,18 @@ const outcome = oneOf("ok", "illegal", "invalid", "error", "timeout", "not_ready
 const seating = oneOf("solo", "duo", "duo_swapped");
 const mode = oneOf("solo", "duo");
 
+/** A palette colour, or `null` for anything else (as Dedale reads them). */
+const markColor: Check<MarkColor | null> = (value) =>
+  MARK_COLORS.includes(value as MarkColor) ? (value as MarkColor) : null;
+
+/** `path`, or absent for cells (any other kind reads as cells, as in Dedale). */
+const markKind: Check<"path" | undefined> = (value) => (value === "path" ? "path" : undefined);
+
 const mark: Check<Mark> = obj<Mark>({
   cells: arr(pos),
   label: nullable(str),
-  color: nullable(str),
+  color: markColor,
+  kind: markKind,
 });
 const botError: Check<BotError> = obj<BotError>({ message: str, traceback: nullable(str) });
 

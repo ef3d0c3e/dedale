@@ -5,7 +5,7 @@
 //! harness did.
 
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
 
 use crate::game::{EndReason, PlayerState};
@@ -21,8 +21,7 @@ pub const MAX_LOG_BYTES: usize = 4096;
 pub const MAX_MARKS: usize = 64;
 /// Cells kept across all marks of a call.
 pub const MAX_MARK_CELLS: usize = 4096;
-/// Longest mark label or colour, and longest error message or traceback, in
-/// bytes.
+/// Longest mark label, and longest error message or traceback, in bytes.
 pub const MAX_LABEL: usize = 64;
 pub const MAX_ERROR_TEXT: usize = 4096;
 /// Log entry appended when something was cut.
@@ -162,8 +161,73 @@ pub struct Mark {
     pub cells: Vec<Pos>,
     #[serde(default)]
     pub label: Option<String>,
-    #[serde(default)]
-    pub color: Option<String>,
+    /// `None` draws in the player's colour. Anything but a palette name
+    /// reads as `None`.
+    #[serde(default, deserialize_with = "lenient")]
+    pub color: Option<MarkColor>,
+    /// Omitted when writing cells (the default); an unknown kind reads as cells.
+    #[serde(
+        default,
+        deserialize_with = "lenient_kind",
+        skip_serializing_if = "MarkKind::is_cells"
+    )]
+    pub kind: MarkKind,
+}
+
+/// The colours a mark can take; viewers choose the shades.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MarkColor {
+    Red,
+    Orange,
+    Yellow,
+    Green,
+    Teal,
+    Blue,
+    Purple,
+    Pink,
+}
+
+impl MarkColor {
+    pub const ALL: [MarkColor; 8] = [
+        MarkColor::Red,
+        MarkColor::Orange,
+        MarkColor::Yellow,
+        MarkColor::Green,
+        MarkColor::Teal,
+        MarkColor::Blue,
+        MarkColor::Purple,
+        MarkColor::Pink,
+    ];
+}
+
+/// How a mark is drawn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MarkKind {
+    /// The cells are highlighted.
+    #[default]
+    Cells,
+    /// A line through the cells, in order: a route.
+    Path,
+}
+
+impl MarkKind {
+    #[must_use]
+    pub fn is_cells(&self) -> bool {
+        *self == MarkKind::Cells
+    }
+}
+
+/// A value Dedale knows, or `None` for anything else (other names, other
+/// types): bots' marks are decoration, never a reason to drop a message.
+fn lenient<'de, D: Deserializer<'de>, T: DeserializeOwned>(d: D) -> Result<Option<T>, D::Error> {
+    let value = serde_json::Value::deserialize(d)?;
+    Ok(serde_json::from_value(value).ok())
+}
+
+fn lenient_kind<'de, D: Deserializer<'de>>(d: D) -> Result<MarkKind, D::Error> {
+    Ok(lenient(d)?.unwrap_or_default())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -276,8 +340,8 @@ fn cap_marks(marks: &mut Vec<Mark>, log: &mut Vec<String>) {
             cut = true;
         }
         budget -= mark.cells.len();
-        for text in [&mut mark.label, &mut mark.color].into_iter().flatten() {
-            cut |= truncate_at_char(text, MAX_LABEL);
+        if let Some(label) = &mut mark.label {
+            cut |= truncate_at_char(label, MAX_LABEL);
         }
     }
     if cut && log.last().is_none_or(|last| last != TRUNCATED) {
@@ -309,8 +373,8 @@ fn truncate_at_char(text: &mut String, max: usize) -> bool {
 mod tests {
     use super::{
         BotError, DecodeError, End, ErrorReply, FromBot, Hello, Init, InitPlayer, MAX_LABEL,
-        MAX_LINE, MAX_LOG_BYTES, MAX_MARK_CELLS, MAX_MARKS, Mark, MoveReply, Phase, Ready,
-        TRUNCATED, ToBot, Turn, decode_bot_line, decode_dedale_line, encode_line,
+        MAX_LINE, MAX_LOG_BYTES, MAX_MARK_CELLS, MAX_MARKS, Mark, MarkColor, MarkKind, MoveReply,
+        Phase, Ready, TRUNCATED, ToBot, Turn, decode_bot_line, decode_dedale_line, encode_line,
     };
     use crate::game::{EndReason, PlayerState};
     use crate::grid::{Move, Pos};
@@ -411,6 +475,7 @@ mod tests {
                         cells: vec![Pos::new(1, 0), Pos::new(2, 0)],
                         label: Some("path".to_owned()),
                         color: None,
+                        kind: MarkKind::Cells,
                     }],
                     error: None,
                 }),
@@ -507,11 +572,70 @@ mod tests {
     }
 
     #[test]
+    fn mark_colours_and_kinds() {
+        let reply = |marks: &str| {
+            let line = format!(r#"{{"type":"move","turn":1,"move":"up","marks":[{marks}]}}"#);
+            let Ok(FromBot::Move(reply)) = decode_bot_line(line.as_bytes()) else {
+                panic!("{line}");
+            };
+            reply.marks
+        };
+        let marks = reply(r#"{"cells":[[0,0],[1,0]],"color":"teal","kind":"path"}"#);
+        assert_eq!(
+            (marks[0].color, marks[0].kind),
+            (Some(MarkColor::Teal), MarkKind::Path)
+        );
+        // Bots' mistakes in decoration never cost the move.
+        for (mark, color, kind) in [
+            (r#"{"cells":[],"color":"magenta"}"#, None, MarkKind::Cells),
+            (r##"{"cells":[],"color":"#ff0000"}"##, None, MarkKind::Cells),
+            (
+                r#"{"cells":[],"color":5,"kind":"circle"}"#,
+                None,
+                MarkKind::Cells,
+            ),
+            (
+                r#"{"cells":[],"color":"PINK","kind":7}"#,
+                None,
+                MarkKind::Cells,
+            ),
+            (
+                r#"{"cells":[],"color":"pink"}"#,
+                Some(MarkColor::Pink),
+                MarkKind::Cells,
+            ),
+        ] {
+            let marks = reply(mark);
+            assert_eq!((marks[0].color, marks[0].kind), (color, kind), "{mark}");
+        }
+        // Cells are the default kind and are written without it.
+        let cells = Mark {
+            cells: vec![Pos::new(2, 3)],
+            label: None,
+            color: Some(MarkColor::Red),
+            kind: MarkKind::Cells,
+        };
+        let path = Mark {
+            kind: MarkKind::Path,
+            ..cells.clone()
+        };
+        assert_eq!(
+            serde_json::to_string(&cells).unwrap(),
+            r#"{"cells":[[2,3]],"label":null,"color":"red"}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&path).unwrap(),
+            r#"{"cells":[[2,3]],"label":null,"color":"red","kind":"path"}"#
+        );
+    }
+
+    #[test]
     fn caps_marks() {
         let mark = |n: usize| Mark {
             cells: vec![Pos::new(0, 0); n],
             label: Some("l".repeat(100)),
             color: None,
+            kind: MarkKind::Cells,
         };
         let ready = Ready {
             init_us: None,
@@ -548,12 +672,14 @@ mod tests {
         (
             prop::collection::vec(pos(), 0..8),
             prop::option::of("\\PC{0,16}"),
-            prop::option::of("\\PC{0,16}"),
+            prop::option::of(prop::sample::select(MarkColor::ALL.to_vec())),
+            prop::sample::select(vec![MarkKind::Cells, MarkKind::Path]),
         )
-            .prop_map(|(cells, label, color)| Mark {
+            .prop_map(|(cells, label, color, kind)| Mark {
                 cells,
                 label,
                 color,
+                kind,
             })
     }
 
@@ -610,7 +736,12 @@ mod tests {
         fn caps_hold_and_are_idempotent(
             log in prop::collection::vec("\\PC{0,600}", 0..30),
             marks in prop::collection::vec(
-                (0usize..200).prop_map(|n| Mark { cells: vec![Pos::new(1, 2); n], label: None, color: None }),
+                (0usize..200).prop_map(|n| Mark {
+                    cells: vec![Pos::new(1, 2); n],
+                    label: None,
+                    color: None,
+                    kind: MarkKind::Cells,
+                }),
                 0..80,
             ),
         ) {

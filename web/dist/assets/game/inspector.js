@@ -1,7 +1,6 @@
 // The turn inspector, beside the maze: one panel per player, and whose
 // marks are drawn on the maze.
 import { h, replace } from "../dom.js";
-import { markColour } from "./canvas.js";
 import { inspect } from "./inspect.js";
 export class Inspector {
     element;
@@ -47,7 +46,7 @@ export class Inspector {
             : null, panel.marks.length
             ? [
                 h("h4", {}, "marks"),
-                h("ul", { class: "marks" }, panel.marks.map((m) => h("li", {}, swatch(m.color), `${m.label ?? "unlabelled"}: ${m.cells.length} ${m.cells.length === 1 ? "cell" : "cells"}`))),
+                h("ul", { class: "marks" }, panel.marks.map((m) => h("li", {}, swatch(m, panel.player), describeMark(m)))),
             ]
             : null, panel.exit
             ? [
@@ -58,13 +57,18 @@ export class Inspector {
             : null);
     }
 }
-/** A square of a mark's colour (through the style object: the page's
- * policy forbids style attributes). */
-function swatch(colour) {
-    const valid = markColour(colour);
-    if (!valid)
-        return null;
-    const square = h("span", { class: "swatch" });
-    square.style.background = valid;
-    return square;
+/** `route: a path through 12 cells`, `targets: 3 cells`. */
+export function describeMark(mark) {
+    const n = mark.cells.length;
+    const cells = `${n} ${n === 1 ? "cell" : "cells"}`;
+    return `${mark.label ?? "unlabelled"}: ${mark.kind === "path" ? `a path through ${cells}` : cells}`;
+}
+/** A square of a mark's colour, or a short line for a path (styled through
+ * the style object: the page's policy forbids style attributes). */
+function swatch(mark, player) {
+    const sample = h("span", { class: mark.kind === "path" ? "swatch line" : "swatch" });
+    sample.style.background = mark.color
+        ? `var(--mark-${mark.color})`
+        : `var(--player-${player === 0 ? "a" : "b"})`;
+    return sample;
 }

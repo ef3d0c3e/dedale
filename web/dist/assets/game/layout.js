@@ -12,6 +12,10 @@ export function cellAt(layout, px, py) {
     const y = Math.floor(py / layout.cell);
     return px >= 0 && py >= 0 && x < layout.cols && y < layout.rows ? [x, y] : null;
 }
+/** The centre of a cell. */
+export function cellCentre(layout, x, y) {
+    return [(x + 0.5) * layout.cell, (y + 0.5) * layout.cell];
+}
 /** The top-left corner of a cell. */
 export function cellOrigin(layout, x, y) {
     return [x * layout.cell, y * layout.cell];

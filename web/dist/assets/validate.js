@@ -1,6 +1,7 @@
 // Checks loaded JSON against the types in types.ts, so a wrong or damaged
 // file fails on load with a message naming the field, not later in a view.
 // Unknown fields are ignored, as Dedale's own readers do.
+import { MARK_COLORS } from "./types.js";
 /** Formats this app reads. */
 export const REPLAY_FORMAT = 1;
 export const TOURNAMENT_FORMAT = 1;
@@ -56,7 +57,10 @@ export function obj(shape) {
         const record = value;
         const out = {};
         for (const key of Object.keys(shape)) {
-            out[key] = shape[key](record[key], field(path, key));
+            const checked = shape[key](record[key], field(path, key));
+            // Optional fields stay absent, as in the file.
+            if (checked !== undefined)
+                out[key] = checked;
         }
         return out;
     };
@@ -70,10 +74,15 @@ const move = oneOf("up", "down", "left", "right", "stay");
 const outcome = oneOf("ok", "illegal", "invalid", "error", "timeout", "not_ready", "crashed");
 const seating = oneOf("solo", "duo", "duo_swapped");
 const mode = oneOf("solo", "duo");
+/** A palette colour, or `null` for anything else (as Dedale reads them). */
+const markColor = (value) => MARK_COLORS.includes(value) ? value : null;
+/** `path`, or absent for cells (any other kind reads as cells, as in Dedale). */
+const markKind = (value) => (value === "path" ? "path" : undefined);
 const mark = obj({
     cells: arr(pos),
     label: nullable(str),
-    color: nullable(str),
+    color: markColor,
+    kind: markKind,
 });
 const botError = obj({ message: str, traceback: nullable(str) });
 export const maze = (value, path) => {

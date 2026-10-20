@@ -12,10 +12,8 @@ fn check_caps(log: &[String], marks: &[Mark]) {
     assert!(log.iter().map(String::len).sum::<usize>() <= MAX_LOG_BYTES);
     assert!(marks.len() <= MAX_MARKS);
     assert!(marks.iter().map(|m| m.cells.len()).sum::<usize>() <= MAX_MARK_CELLS);
-    for mark in marks {
-        for text in [&mark.label, &mark.color].into_iter().flatten() {
-            assert!(text.len() <= MAX_LABEL);
-        }
+    for label in marks.iter().filter_map(|m| m.label.as_ref()) {
+        assert!(label.len() <= MAX_LABEL);
     }
 }
 

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { describeResult, formatUs, score } from "../src/format.ts";
-import { cellAt, cellOrigin, fit } from "../src/game/layout.ts";
+import { cellAt, cellCentre, cellOrigin, fit } from "../src/game/layout.ts";
 import { advance, step } from "../src/game/playback.ts";
 import { markers, nextProblem, previousProblem, problemStarts } from "../src/game/timeline.ts";
 import { GameModel } from "../src/model.ts";
@@ -29,6 +29,9 @@ test("cells fit the space in whole pixels", () => {
   assert.equal(cellAt(layout, 110, 10), null);
   assert.equal(cellAt(layout, -1, 10), null);
   assert.deepEqual(cellOrigin(layout, 3, 2), [30, 20]);
+  // Paths join cell centres.
+  assert.deepEqual(cellCentre(layout, 3, 2), [35, 25]);
+  assert.deepEqual(cellAt(layout, ...cellCentre(layout, 10, 6)), [10, 6]);
   for (const [x, y] of [
     [0, 0],
     [4, 5],

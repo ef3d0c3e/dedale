@@ -16,7 +16,8 @@ updates it in place before every call to ``move()``::
 
 Coordinates are ``(x, y)``: origin top-left, ``x`` to the right, ``y`` down.
 Anything printed during ``init()`` or ``move()`` is captured and stored in the
-replay, as are cells highlighted with :func:`mark`.
+replay, as are cells highlighted with :func:`mark` and routes drawn with
+:func:`path`.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ import time
 from collections.abc import Iterable
 
 __all__ = [
+    "Color",
     "Maze",
     "Move",
     "Player",
@@ -38,6 +40,7 @@ __all__ = [
     "me",
     "move_timeout",
     "opponent",
+    "path",
     "players",
     "points",
     "startup_timeout",
@@ -72,6 +75,22 @@ _DELTAS = {
     Move.STAY: (0, 0),
 }
 _STEPS = [(m, _DELTAS[m]) for m in (Move.UP, Move.DOWN, Move.LEFT, Move.RIGHT)]
+
+
+class Color(str, enum.Enum):
+    """The colours of :func:`mark` and :func:`path`; the viewers choose the shades."""
+
+    RED = "red"
+    ORANGE = "orange"
+    YELLOW = "yellow"
+    GREEN = "green"
+    TEAL = "teal"
+    BLUE = "blue"
+    PURPLE = "purple"
+    PINK = "pink"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 class Maze:
@@ -166,13 +185,45 @@ def log(*args: object, sep: str = " ") -> None:
     print(*args, sep=sep, file=sys.stdout)
 
 
-def mark(cells: Iterable[tuple[int, int]], label: str | None = None, color: str | None = None) -> None:
+def mark(
+    cells: Iterable[tuple[int, int]], label: str | None = None, color: Color | str | None = None
+) -> None:
     """Highlights ``cells`` for this call in the replay and the debugger.
 
-    Cells outside the maze are dropped. Past 64 marks or 4096 cells per call,
-    the rest is dropped and the log says ``[truncated]``.
+    ``color`` is a :class:`Color` (or its name, in any case); without one the
+    cells take the player's colour. Cells outside the maze are dropped. Past
+    64 marks or 4096 cells per call (paths included), the rest is dropped and
+    the log says ``[truncated]``.
+
+    Raises :class:`ValueError` for a colour that is not one of :class:`Color`.
     """
+    _add(cells, label, color, "cells")
+
+
+def path(
+    cells: Iterable[tuple[int, int]], label: str | None = None, color: Color | str | None = None
+) -> None:
+    """Draws a line through ``cells``, in order, for this call in the replay
+    and the debugger: a planned route. Consecutive cells should be neighbours.
+
+    Same colours and limits as :func:`mark`.
+    """
+    _add(cells, label, color, "path")
+
+
+def _color(color: Color | str | None) -> str | None:
+    if color is None:
+        return None
+    try:
+        return Color(str(color).lower()).value
+    except ValueError:
+        names = ", ".join(c.value for c in Color)
+        raise ValueError(f"color must be one of {names} (or None), not {color!r}") from None
+
+
+def _add(cells: Iterable[tuple[int, int]], label: object, color: Color | str | None, kind: str) -> None:
     global _mark_cells, _marks_truncated
+    color_name = _color(color)
     if len(_marks) >= MAX_MARKS or _mark_cells >= MAX_MARK_CELLS:
         _marks_truncated = True
         return
@@ -186,7 +237,7 @@ def mark(cells: Iterable[tuple[int, int]], label: str | None = None, color: str 
             break
         kept.append([x, y])
     _mark_cells += len(kept)
-    _marks.append({"cells": kept, "label": _cap(label), "color": _cap(color)})
+    _marks.append({"cells": kept, "label": _cap(label), "color": color_name, "kind": kind})
 
 
 def _cap(text: object) -> str | None:

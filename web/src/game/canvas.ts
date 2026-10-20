@@ -3,9 +3,9 @@
 // of marked cells.
 
 import type { GameModel, PlayerState } from "../model.ts";
-import type { Mark } from "../types.ts";
+import { MARK_COLORS, type Mark, type MarkColor, type Pos } from "../types.ts";
 import { type HeatLayer, strength } from "./heat.ts";
-import { cellAt, fit, type Layout } from "./layout.ts";
+import { cellAt, cellCentre, fit, type Layout } from "./layout.ts";
 
 interface Palette {
   floor: string;
@@ -13,8 +13,10 @@ interface Palette {
   point: string;
   players: string[];
   shared: string;
+  /** Mark labels. */
   mark: string;
   text: string;
+  marks: Record<MarkColor, string>;
 }
 
 function readPalette(): Palette {
@@ -28,16 +30,11 @@ function readPalette(): Palette {
     shared: v("--player-both"),
     mark: v("--mark"),
     text: v("--on-player"),
+    marks: Object.fromEntries(MARK_COLORS.map((c) => [c, v(`--mark-${c}`)])) as Record<
+      MarkColor,
+      string
+    >,
   };
-}
-
-/** A bot-chosen colour, if it is a plain colour value (`#rgb`, `#rrggbb`,
- * `#rrggbbaa` or a name). */
-export function markColour(colour: string | null): string | null {
-  return colour !== null &&
-    /^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[a-zA-Z]{1,30})$/.test(colour)
-    ? colour
-    : null;
 }
 
 /** Marks drawn over the maze, in a player's colour unless they set theirs. */
@@ -181,18 +178,60 @@ export class MazeCanvas {
     const c = this.layout.cell;
     const own = this.palette.players[overlay.player] ?? this.palette.mark;
     for (const mark of overlay.marks) {
-      ctx.fillStyle = markColour(mark.color) ?? own;
-      ctx.globalAlpha = 0.35;
-      for (const [x, y] of mark.cells) ctx.fillRect(x * c, y * c, c, c);
-      ctx.globalAlpha = 1;
-      const first = mark.cells[0];
-      if (mark.label && first && c >= 10) {
-        ctx.fillStyle = this.palette.mark;
-        ctx.font = `${Math.max(10, Math.round(c * 0.5))}px system-ui, sans-serif`;
-        ctx.textBaseline = "bottom";
-        ctx.fillText(mark.label, first[0] * c + 2, first[1] * c);
+      const colour = mark.color ? this.palette.marks[mark.color] : own;
+      if (mark.kind === "path") {
+        this.drawPath(ctx, mark.cells, colour);
+      } else {
+        ctx.fillStyle = colour;
+        ctx.globalAlpha = 0.45;
+        for (const [x, y] of mark.cells) ctx.fillRect(x * c, y * c, c, c);
+        ctx.globalAlpha = 1;
       }
     }
+    // Labels above every mark.
+    for (const mark of overlay.marks) this.drawLabel(ctx, mark);
+  }
+
+  /** A line through the cells' centres, with a dot where it ends. */
+  private drawPath(ctx: CanvasRenderingContext2D, cells: readonly Pos[], colour: string): void {
+    const points = cells.map(([x, y]) => cellCentre(this.layout, x, y));
+    const first = points[0];
+    const last = points.at(-1);
+    if (!first || !last) return;
+    const c = this.layout.cell;
+    ctx.strokeStyle = colour;
+    ctx.fillStyle = colour;
+    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = Math.max(1.5, c * 0.22);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(first[0], first[1]);
+    for (const [x, y] of points.slice(1)) ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(last[0], last[1], Math.max(2, c * 0.2), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  /** A mark's label: above its first cell, or a path's last, inside the canvas. */
+  private drawLabel(ctx: CanvasRenderingContext2D, mark: Mark): void {
+    const c = this.layout.cell;
+    const at = mark.kind === "path" ? mark.cells.at(-1) : mark.cells[0];
+    if (!mark.label || !at || c < 10) return;
+    const [x, y] = at;
+    const top = y === 0;
+    ctx.font = `${Math.max(10, Math.round(c * 0.45))}px system-ui, sans-serif`;
+    ctx.textBaseline = top ? "top" : "bottom";
+    const ty = top ? c : y * c;
+    // A halo in the floor's colour keeps it readable over anything.
+    ctx.lineWidth = 3;
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = this.palette.floor;
+    ctx.strokeText(mark.label, x * c + 2, ty);
+    ctx.fillStyle = this.palette.mark;
+    ctx.fillText(mark.label, x * c + 2, ty);
   }
 
   private drawPlayers(ctx: CanvasRenderingContext2D, players: readonly PlayerState[]): void {

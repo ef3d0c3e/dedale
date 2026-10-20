@@ -89,6 +89,12 @@ when it was rejected).
 - `log`, `marks` and `error` are optional. Dedale keeps 4 KiB of log, 64 marks,
   4096 marked cells and 64-byte labels per message, and caps error texts at
   4 KiB.
+- A mark is `cells` (`[x, y]` pairs), `label` (optional), `color` and `kind`
+  (both optional). `color` is one of `red`, `orange`, `yellow`, `green`,
+  `teal`, `blue`, `purple`, `pink`, or `null` for the player's colour; any
+  other value reads as `null`. `kind` is `cells` (the default: highlighted
+  cells) or `path` (a line through the cells in order); any other value reads
+  as `cells`. Viewers choose the shades.
 
 ## Outcomes
 
