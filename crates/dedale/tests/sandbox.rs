@@ -5,6 +5,8 @@ mod common;
 
 use std::ffi::OsStr;
 use std::fs;
+use std::path::PathBuf;
+use std::process::Command;
 use std::time::Duration;
 
 use common::{example_bot, fake_bot_path, python};
@@ -70,8 +72,25 @@ def move():
     return "stay"
 "#;
 
+/// Imports a package found only in the virtual environment it runs from.
+const IMPORTER: &str = r#"
+import dedale_venv_probe
+
+
+def init():
+    print("probe:", dedale_venv_probe.VALUE)
+
+
+def move():
+    return "stay"
+"#;
+
 fn sandbox(limits: Limits) -> Option<Sandbox> {
-    match Sandbox::new(limits, OsStr::new(&python())) {
+    sandbox_for(limits, OsStr::new(&python()))
+}
+
+fn sandbox_for(limits: Limits, python: &OsStr) -> Option<Sandbox> {
+    match Sandbox::new(limits, python) {
         Ok(sandbox) => Some(sandbox),
         Err(e) => {
             common::no_sandbox(&e);
@@ -155,6 +174,53 @@ fn a_hostile_bot_is_contained() {
     assert!(!bots.join("written").exists());
     assert_eq!(player.cpu, Some(u32::try_from(cpu).unwrap()));
     assert!(record.config.sandbox);
+}
+
+#[test]
+fn packages_of_a_virtual_environment_import() {
+    let dir = tempfile::tempdir().unwrap();
+    let venv = dir.path().join("venv");
+    let created = Command::new(python())
+        .args(["-m", "venv", "--without-pip"])
+        .arg(&venv)
+        .status()
+        .unwrap();
+    assert!(created.success(), "python -m venv failed");
+    let interpreter = venv.join("bin/python");
+    let purelib = Command::new(&interpreter)
+        .args([
+            "-c",
+            "import sysconfig; print(sysconfig.get_path('purelib'))",
+        ])
+        .output()
+        .unwrap();
+    let package =
+        PathBuf::from(String::from_utf8(purelib.stdout).unwrap().trim()).join("dedale_venv_probe");
+    fs::create_dir_all(&package).unwrap();
+    fs::write(package.join("__init__.py"), "VALUE = 42\n").unwrap();
+    let Some(sandbox) = sandbox_for(Limits::default(), interpreter.as_os_str()) else {
+        return;
+    };
+
+    let bots = dir.path().join("bots");
+    fs::create_dir(&bots).unwrap();
+    let bot = bots.join("importer.py");
+    fs::write(&bot, IMPORTER).unwrap();
+    let runtime = PythonRuntime::extract().unwrap();
+    let launcher = runtime.launcher(&interpreter).sandboxed(Some(sandbox));
+    let cpu = cores(1)[0];
+    let entrant = Entrant {
+        name: "importer".to_owned(),
+        path: bot.display().to_string(),
+        about: About::default(),
+        cpu: Some(cpu),
+        command: BotSpec::from_path(&bot).command_on(&launcher, Some(cpu)),
+        stderr_log: None,
+    };
+    let record = game(vec![entrant], Seating::Solo);
+    let startup = &record.players[0].startup;
+    assert_eq!(startup.outcome, StartupOutcome::Ok, "{startup:?}");
+    assert_eq!(startup.log, ["probe: 42"]);
 }
 
 #[test]

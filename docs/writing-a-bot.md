@@ -18,8 +18,8 @@ same game through a [small protocol](protocol.md).
 
 ## What you need
 
-- **Python 3.10 or later**, standard library only: nothing to install for
-  your bot.
+- **Python 3.10 or later**. The standard library is enough; packages such
+  as numpy work too, but a competition only has the ones it lists.
 - **Dedale**: the archive for your platform from the
   [releases](https://github.com/ef3d0c3e/dedale/releases) (see
   [Installation](../README.md#installation)), or built from a clone of this
@@ -287,9 +287,13 @@ examples against each other.
 
 Competitions run every bot in Dedale's sandbox (`--sandbox`). There, a bot:
 
-- can count on the standard library only (other packages may not be
-  there); its own directory is readable, so helper modules next to the bot
+- can count on the standard library and on the packages the competition
+  lists; its own directory is readable, so helper modules next to the bot
   import as usual;
+- sees the packages of the interpreter that runs it, or of its virtual
+  environment (`--python .venv/bin/python`), but not those from
+  `pip install --user`, which live in your home directory: test with
+  `--sandbox` before you submit;
 - can write only to a private `/tmp` (64 MiB), has no network and an empty
   environment;
 - gets at most 2048 MiB of memory per process, 64 processes and threads, and

@@ -327,7 +327,9 @@ each bot with [bubblewrap](https://github.com/containers/bubblewrap)
 instead. A sandboxed bot:
 
 - sees the system read-only (`/usr`, the libraries), its own directory and
-  the Python installation read-only, and nothing else of your files;
+  the Python installation that runs it read-only (with its packages, or
+  those of the virtual environment it comes from), and nothing else of your
+  files: packages from `pip install --user` stay hidden in your home;
 - writes only to a private `/tmp` of 64 MiB, which disappears with it;
 - has no network and an empty environment (no tokens or secrets from
   yours), and cannot see other processes;
