@@ -5,9 +5,13 @@
 /fuzz/coverage
 __pycache__/
 /dedale-out/
+# Example bots kept out of the published repository.
+/examples/private/
 
 # Local tool configuration; .mcp.json holds an access token.
 .mcp.json
 .claude/settings.local.json
+# Instructions for coding agents, kept local.
+/AGENTS.md
 /web/node_modules/
 /web/build/

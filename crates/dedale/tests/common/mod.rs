@@ -49,6 +49,22 @@ pub fn example_bot(name: &str) -> PathBuf {
     repo().join("examples/python").join(format!("{name}.py"))
 }
 
+/// A bot kept out of the published repository, in `examples/private/`,
+/// when this checkout has it.
+pub fn private_bot(name: &str) -> Option<PathBuf> {
+    let path = repo().join("examples/private").join(format!("{name}.py"));
+    path.exists().then_some(path)
+}
+
+/// Whether the private bot `name` is here; says the test is skipped if not.
+pub fn has_private_bot(name: &str) -> bool {
+    let found = private_bot(name).is_some();
+    if !found {
+        eprintln!("skipped: examples/private/{name}.py is not in this checkout");
+    }
+    found
+}
+
 /// An entrant running the Python bot at `path` through `runtime`.
 pub fn python_entrant(runtime: &PythonRuntime, path: &Path) -> Entrant {
     let spec = BotSpec::from_path(path);

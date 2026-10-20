@@ -6,13 +6,15 @@ mod common;
 use std::fs;
 use std::time::Duration;
 
-use common::{example_bot, python_entrant, test_bot};
+use common::{example_bot, fake_bot, has_private_bot, private_bot, python_entrant, test_bot};
 use dedale::python::PythonRuntime;
+use dedale::referee::Entrant;
 use dedale::referee::{MatchConfig, run_match};
 use dedale_core::code::MazeCode;
 use dedale_core::game::{EndReason, Outcome, Seating};
 use dedale_core::generator::generate;
 use dedale_core::maze::Maze;
+use dedale_core::protocol::About;
 use dedale_core::protocol::{MarkColor, MarkKind};
 use dedale_core::record::{EventKind, GameRecord, StartupOutcome};
 
@@ -112,13 +114,18 @@ fn greedy_clears_a_full_size_maze() {
 }
 
 #[test]
-fn greedy_beats_random() {
+fn greedy_beats_a_bot_that_stays() {
     let runtime = PythonRuntime::extract().unwrap();
     let code: MazeCode = "ded2-21x21-l25-p65535-0123456789abcdef".parse().unwrap();
-    let entrants = vec![
-        python_entrant(&runtime, &example_bot("greedy_bot")),
-        python_entrant(&runtime, &example_bot("random_bot")),
-    ];
+    let sitter = Entrant {
+        name: "sitter".to_owned(),
+        path: "fake:sitter".to_owned(),
+        about: About::default(),
+        cpu: None,
+        command: fake_bot(&[]),
+        stderr_log: None,
+    };
+    let entrants = vec![python_entrant(&runtime, &example_bot("greedy_bot")), sitter];
     let config = MatchConfig::new(Seating::Duo);
     let record = run_match(generate(&code), Some(code), entrants, &config, &mut ()).unwrap();
     assert_eq!(record.result.reason, EndReason::Cleared);
@@ -133,7 +140,10 @@ fn example_game(bots: &[&str], code: &str, seating: Seating) -> GameRecord {
     let code: MazeCode = code.parse().unwrap();
     let entrants = bots
         .iter()
-        .map(|bot| python_entrant(&runtime, &example_bot(bot)))
+        .map(|bot| {
+            let path = private_bot(bot).unwrap_or_else(|| example_bot(bot));
+            python_entrant(&runtime, &path)
+        })
         .collect();
     let mut config = MatchConfig::new(seating);
     config.startup = Duration::from_secs(10);
@@ -212,6 +222,9 @@ fn two_rollout_bots_do_not_stall() {
 
 #[test]
 fn the_combo_bot_plans_alone_and_looks_ahead_in_a_duo() {
+    if !has_private_bot("combo_bot") {
+        return;
+    }
     let code = "ded2-21x21-l25-p65535-0123456789abcdef";
     let solo = example_game(&["combo_bot"], code, Seating::Solo);
     assert_eq!(solo.players[0].startup.log[0], "playing tour_bot");
@@ -225,6 +238,9 @@ fn the_combo_bot_plans_alone_and_looks_ahead_in_a_duo() {
 
 #[test]
 fn the_score_bot_clears_mazes_faster_than_greedy() {
+    if !has_private_bot("score_bot") {
+        return;
+    }
     for code in [
         "ded2-31x31-l25-p65535-9f3a0c11d2e4b6a8",
         "ded2-31x31-l25-p100-0000000000000002",
@@ -240,6 +256,9 @@ fn the_score_bot_clears_mazes_faster_than_greedy() {
 
 #[test]
 fn the_score_bot_beats_greedy_from_either_corner() {
+    if !has_private_bot("score_bot") {
+        return;
+    }
     let code = "ded2-21x21-l25-p65535-0123456789abcdef";
     for seating in [Seating::Duo, Seating::DuoSwapped] {
         let record = example_game(&["score_bot", "greedy_bot"], code, seating);
@@ -259,6 +278,9 @@ fn the_score_bot_beats_greedy_from_either_corner() {
 
 #[test]
 fn two_score_bots_clear_the_maze() {
+    if !has_private_bot("score_bot") {
+        return;
+    }
     let code = "ded2-21x21-l25-p40-0000000000000005";
     let record = example_game(&["score_bot", "score_bot"], code, Seating::Duo);
     assert_eq!(

@@ -14,7 +14,7 @@ browser app, live or afterwards.
 
 ```sh
 cargo build --release
-./target/release/dedale run examples/python/greedy_bot.py examples/python/random_bot.py --watch --delay 50
+./target/release/dedale run examples/python/greedy_bot.py examples/python/tour_bot.py --watch --delay 50
 ```
 
 ## Rules
@@ -281,8 +281,8 @@ without opening a browser. Ctrl-C stops it.
 
 ```sh
 dedale view                                       # browse dedale-out/
-dedale run greedy_bot.py random_bot.py --view     # watch a game live
-dedale tournament greedy_bot.py random_bot.py --view
+dedale run greedy_bot.py tour_bot.py --view       # watch a game live
+dedale tournament greedy_bot.py tour_bot.py --view
 ```
 
 Dedale serves the app itself and opens it in your browser (`xdg-open`, or

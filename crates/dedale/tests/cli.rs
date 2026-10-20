@@ -231,11 +231,11 @@ fn watching_a_duo_from_a_map() {
     let map = dir.path().join("ring.txt");
     fs::write(&map, "_....\n.###.\n.###.\n.###.\n...._\n").unwrap();
     let out = dir.path().join("out");
-    let (greedy, random) = (example_bot("greedy_bot"), example_bot("random_bot"));
+    let (greedy, tour) = (example_bot("greedy_bot"), example_bot("tour_bot"));
     let args = [
         "run",
         path(&greedy),
-        path(&random),
+        path(&tour),
         "--map",
         path(&map),
         "--watch",
@@ -304,7 +304,7 @@ fn ctrl_c_stops_the_game_and_its_bots() {
         .args([
             "run",
             path(&test_bot("infinite_loop")),
-            path(&example_bot("random_bot")),
+            path(&example_bot("greedy_bot")),
             "--max-turns",
             "100000",
             "--out",

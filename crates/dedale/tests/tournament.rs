@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::time::Duration;
 
-use common::{example_bot, fake_bot};
+use common::{example_bot, fake_bot, fake_bot_path};
 use dedale::referee::{Entrant, GameStart, MatchConfig, Observer};
 use dedale::replay;
 use dedale::tournament::{
@@ -142,14 +142,10 @@ fn text(bytes: &[u8]) -> String {
     String::from_utf8(bytes.to_vec()).unwrap()
 }
 
+/// Greedy against the fake bot, which never moves.
 fn tournament(out: &Path, extra: &[&str]) -> (Output, TournamentReport) {
     let greedy = example_bot("greedy_bot");
-    let random = example_bot("random_bot");
-    let mut args = vec![
-        "tournament",
-        greedy.to_str().unwrap(),
-        random.to_str().unwrap(),
-    ];
+    let mut args = vec!["tournament", greedy.to_str().unwrap(), fake_bot_path()];
     args.extend([
         "--size",
         "9x9",
@@ -209,7 +205,7 @@ fn the_solo_command() {
 
 #[test]
 fn bad_tournaments_are_rejected() {
-    let bot = example_bot("random_bot");
+    let bot = example_bot("greedy_bot");
     let bot = bot.to_str().unwrap();
     let output = dedale(&["tournament", bot, bot, bot, "--games", "1"]);
     assert_eq!(output.status.code(), Some(1));

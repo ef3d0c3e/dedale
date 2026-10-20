@@ -33,14 +33,7 @@ fn python_bots_are_read_without_running_them() {
 
 #[test]
 fn example_bots_say_who_they_are() {
-    let names = [
-        "greedy_bot",
-        "random_bot",
-        "tour_bot",
-        "rollout_bot",
-        "combo_bot",
-        "score_bot",
-    ];
+    let names = ["greedy_bot", "tour_bot", "rollout_bot"];
     let specs: Vec<_> = names
         .iter()
         .map(|name| BotSpec::from_path(example_bot(name)))
