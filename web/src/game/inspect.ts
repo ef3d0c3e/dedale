@@ -5,6 +5,7 @@
 
 import { formatUs, letter, outcomeName, score } from "../format.ts";
 import type { BotError, ExitRecord, Mark, StartupRecord } from "../types.ts";
+import type { Overlay } from "./canvas.ts";
 import type { GameData } from "./data.ts";
 
 export type Tone = "ok" | "bad" | "plain";
@@ -131,4 +132,26 @@ export function inspect(data: GameData, turn: number): PlayerPanel[] {
       exit,
     };
   });
+}
+
+/** Whose marks are drawn on the maze: one player's, both, or nobody's. */
+export type MarksOf = number | "both" | null;
+
+/**
+ * The marks to draw at a turn, from its panels. With both players', each
+ * label starts with its player's letter, so two bots' paths stay apart
+ * even in the same colour.
+ */
+export function overlays(panels: readonly PlayerPanel[], of: MarksOf): Overlay[] {
+  if (of === null) return [];
+  if (of !== "both") {
+    const panel = panels[of];
+    return panel ? [{ player: of, marks: panel.marks }] : [];
+  }
+  return panels.map((panel) => ({
+    player: panel.player,
+    marks: panel.marks.map((mark) =>
+      mark.label === null ? mark : { ...mark, label: `${letter(panel.player)} ${mark.label}` },
+    ),
+  }));
 }

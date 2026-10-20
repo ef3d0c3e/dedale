@@ -46,6 +46,9 @@ function results(): string {
     },
     { cells: [[3, 4]], label: null, color: "red" },
   ];
+  hostile.turns[0].players[1].marks = [
+    { cells: [[0, 2]], label: "theirs", color: null, kind: "cells" },
+  ];
   put(join(root, "hostile/replay.json"), JSON.stringify(hostile));
   put(join(root, "broken/replay.json"), "not json");
   return root;
@@ -165,6 +168,21 @@ test("browsing results: runs, a game, a tournament", async () => {
     assert.ok(r2 !== undefined && g2 !== undefined && b2 !== undefined);
     assert.ok(r2 > g2 && r2 > b2, `red-ish: ${[r2, g2, b2]}`);
     assert.notDeepEqual(await pixel(35, 20), floor);
+    // B's cell, in B's orange: drawn with both players' marks or B's only.
+    const orange = async () => {
+      const [r, g, b] = await pixel(3, 83);
+      return r !== undefined && g !== undefined && b !== undefined && r > g && g > b;
+    };
+    const marks = "Marks drawn on the maze";
+    assert.equal(await orange(), false, "A's marks by default");
+    await page.choose(marks, "both");
+    assert.equal(await orange(), true, "both players' marks");
+    assert.notDeepEqual(await pixel(35, 20), floor, "A's path with B's marks");
+    await page.choose(marks, "1");
+    assert.equal(await orange(), true, "B's marks");
+    assert.deepEqual(await pixel(35, 20), floor, "no path of A's with B's marks");
+    await page.choose(marks, "");
+    assert.equal(await orange(), false, "no marks");
 
     // A tournament, one of its games, and back.
     await page.goto(`${dedale.url}#/tournament/cup/tournament.json`);

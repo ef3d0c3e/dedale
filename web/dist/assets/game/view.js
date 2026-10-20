@@ -141,9 +141,9 @@ export class GameView {
     }
     /** Redraws the maze (after the overlay changed). */
     draw() {
-        const overlay = this.options.overlay?.(this.turn) ?? null;
+        const overlays = this.options.overlays?.(this.turn) ?? [];
         const heat = this.options.heat?.(this.turn) ?? null;
-        this.canvas.draw(this.turn, this.data.model.state(this.turn).players, overlay, heat);
+        this.canvas.draw(this.turn, this.data.model.state(this.turn).players, overlays, heat);
     }
     dispose() {
         this.pause();

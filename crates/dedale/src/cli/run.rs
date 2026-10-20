@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use clap::{Args, ValueEnum};
 use dedale_core::game::{Game, Seating, Snapshot};
-use dedale_core::protocol::About;
+use dedale_core::protocol::{About, Mark};
 use dedale_core::record::TurnRecord;
 
 use super::serve::LiveArgs;
@@ -147,7 +147,7 @@ pub(crate) struct WatchArgs {
     /// Pause after each shown turn, in milliseconds.
     #[arg(long, value_name = "MS", default_value_t = 0, requires = "watch")]
     pub delay: u64,
-    /// Whose marks to draw.
+    /// Whose marks to draw: a player's, both players', or none.
     #[arg(long, value_enum, default_value_t = Marks::A)]
     pub marks: Marks,
     /// Draw with ASCII characters only.
@@ -171,15 +171,18 @@ impl WatchArgs {
 pub(crate) enum Marks {
     A,
     B,
+    Both,
     None,
 }
 
 impl Marks {
-    pub(crate) fn player(self) -> Option<usize> {
+    /// The players whose marks are drawn, in drawing order.
+    pub(crate) fn players(self) -> &'static [usize] {
         match self {
-            Marks::A => Some(0),
-            Marks::B => Some(1),
-            Marks::None => None,
+            Marks::A => &[0],
+            Marks::B => &[1],
+            Marks::Both => &[0, 1],
+            Marks::None => &[],
         }
     }
 }
@@ -244,7 +247,7 @@ pub(crate) fn run(args: &RunArgs) -> CliResult {
         names,
         max_turns: 0,
         style,
-        marks: args.display.marks.player(),
+        marks: args.display.marks.players(),
         clear: std::io::stdout().is_terminal(),
         delay: Duration::from_millis(args.display.delay),
         shown: Instant::now(),
@@ -304,7 +307,7 @@ struct Watcher {
     /// Known once the game starts.
     max_turns: u32,
     style: Style,
-    marks: Option<usize>,
+    marks: &'static [usize],
     /// Redraw in place (on a terminal) rather than print frame after frame.
     clear: bool,
     /// Held between a frame and the next turn.
@@ -332,16 +335,18 @@ impl Observer for Watcher {
 
 impl Watcher {
     fn show(&mut self, snapshot: &Snapshot, last: Option<&TurnRecord>) {
-        let marks = last
-            .zip(self.marks)
-            .and_then(|(turn, player)| turn.players.get(player))
-            .map_or(&[][..], |p| p.marks.as_slice());
+        let marks: Vec<(usize, &[Mark])> = last.map_or_else(Vec::new, |turn| {
+            self.marks
+                .iter()
+                .filter_map(|&i| turn.players.get(i).map(|p| (i, p.marks.as_slice())))
+                .collect()
+        });
         let frame = Frame {
             snapshot,
             names: &self.names,
             max_turns: self.max_turns,
             last,
-            marks,
+            marks: &marks,
         };
         let text = render(&frame, self.style);
         let mut stdout = std::io::stdout().lock();

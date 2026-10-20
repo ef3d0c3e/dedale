@@ -33,7 +33,7 @@ export interface GameViewOptions {
   /** The shown turn changed (not called for every frame of playback). */
   onTurn?(turn: number): void;
   /** Draws over the maze at a turn (the inspector's marks). */
-  overlay?(turn: number): Overlay | null;
+  overlays?(turn: number): readonly Overlay[];
   /** A heatmap under the players at a turn. */
   heat?(turn: number): HeatLayer | null;
   /** Every time the shown turn changes, playback included. */
@@ -208,9 +208,9 @@ export class GameView {
 
   /** Redraws the maze (after the overlay changed). */
   draw(): void {
-    const overlay = this.options.overlay?.(this.turn) ?? null;
+    const overlays = this.options.overlays?.(this.turn) ?? [];
     const heat = this.options.heat?.(this.turn) ?? null;
-    this.canvas.draw(this.turn, this.data.model.state(this.turn).players, overlay, heat);
+    this.canvas.draw(this.turn, this.data.model.state(this.turn).players, overlays, heat);
   }
 
   dispose(): void {

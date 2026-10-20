@@ -120,8 +120,10 @@ dedale.mark(dangers, label="opponent's", color="red")
 
 `color` is one of the eight `Color` members (`RED`, `ORANGE`, `YELLOW`,
 `GREEN`, `TEAL`, `BLUE`, `PURPLE`, `PINK`) or their names in any case;
-without one, marks take your player's colour. The app picks shades that read
-well in light and dark themes. Any other colour raises `ValueError`.
+without one, marks take your player's colour, which keeps them apart from
+the opponent's when both players' marks are shown. The app picks shades
+that read well in light and dark themes. Any other colour raises
+`ValueError`.
 
 Per call, Dedale keeps 4 KiB of log, 64 marks (paths included), 4096 marked
 cells and labels of up to 64 bytes. Anything beyond is dropped and the log

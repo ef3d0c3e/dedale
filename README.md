@@ -195,7 +195,7 @@ Plays one game. The maze's **code** is printed first: pass it back with
 | `--swap` | Start the first bot bottom-right |
 | `--watch`, `--delay MS` | Draw every turn as it is played |
 | `--view` | Follow the game in the [browser app](#browser-app) instead: the bots start when you press Start there, and the page sets the pace. With `--port N`, `--no-open` |
-| `--marks a\|b\|none`, `--ascii`, `--color auto\|always\|never` | Drawing options |
+| `--marks a\|b\|both\|none`, `--ascii`, `--color auto\|always\|never` | Drawing options: whose marks are drawn (default A's), ASCII only, colours |
 | `--out DIR` | Where the replay and logs go (default `dedale-out/<time>-<maze>/`) |
 | `--python PATH` | Interpreter for `.py` bots (or `DEDALE_PYTHON`; default `python3`) |
 | `--sandbox` | Run the bots in a [sandbox](#running-bots-you-did-not-write), with `--memory-mib N` and `--processes N` |
@@ -319,8 +319,10 @@ ones a bot played. A file Dedale cannot read is listed with the reason.
   traceback), plus late or ignored answers. Turn 0 shows the startup
   (ready in time or not, import and `init()` time, its log and errors);
   the last turn shows how each bot exited and the end of its stderr. Pick
-  whose marks are drawn on the maze: highlighted cells and path lines, in
-  the colours the bot chose.
+  whose marks are drawn on the maze (A's, B's, both players' or none):
+  highlighted cells and path lines, in the colours the bot chose or else its
+  player's. With both players' marks, labels start with the player's letter
+  (`A route`, `B path`).
 - **heatmaps** under the maze: how often each player stood on each cell, or
   which player took each point, shaded by the order they were taken in.
 - **charts**: latency and time inside `move()` per turn (log scale, the move

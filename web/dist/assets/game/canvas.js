@@ -1,6 +1,6 @@
 // Draws a maze at one turn: walls (cached), the points left (a collected
-// cell is plain floor again), an optional heatmap, players, and an overlay
-// of marked cells.
+// cell is plain floor again), an optional heatmap, players, and overlays of
+// marked cells (one per player whose marks are shown).
 import { MARK_COLORS } from "../types.js";
 import { strength } from "./heat.js";
 import { cellAt, cellCentre, fit } from "./layout.js";
@@ -82,7 +82,7 @@ export class MazeCanvas {
         this.walls = layer;
         return layer;
     }
-    draw(turn, players, overlay = null, heat = null) {
+    draw(turn, players, overlays = [], heat = null) {
         const ctx = this.element.getContext("2d");
         if (!ctx)
             return;
@@ -109,8 +109,7 @@ export class MazeCanvas {
             }
         }
         ctx.fill();
-        if (overlay)
-            this.drawMarks(ctx, overlay);
+        this.drawMarks(ctx, overlays);
         this.drawPlayers(ctx, players);
     }
     /** A's colour, B's, or the mark colour for a point both took. */
@@ -143,25 +142,29 @@ export class MazeCanvas {
         }
         ctx.globalAlpha = 1;
     }
-    drawMarks(ctx, overlay) {
+    drawMarks(ctx, overlays) {
         const c = this.layout.cell;
-        const own = this.palette.players[overlay.player] ?? this.palette.mark;
-        for (const mark of overlay.marks) {
-            const colour = mark.color ? this.palette.marks[mark.color] : own;
-            if (mark.kind === "path") {
-                this.drawPath(ctx, mark.cells, colour);
-            }
-            else {
-                ctx.fillStyle = colour;
-                ctx.globalAlpha = 0.45;
-                for (const [x, y] of mark.cells)
-                    ctx.fillRect(x * c, y * c, c, c);
-                ctx.globalAlpha = 1;
+        for (const overlay of overlays) {
+            const own = this.palette.players[overlay.player] ?? this.palette.mark;
+            for (const mark of overlay.marks) {
+                const colour = mark.color ? this.palette.marks[mark.color] : own;
+                if (mark.kind === "path") {
+                    this.drawPath(ctx, mark.cells, colour);
+                }
+                else {
+                    ctx.fillStyle = colour;
+                    ctx.globalAlpha = 0.45;
+                    for (const [x, y] of mark.cells)
+                        ctx.fillRect(x * c, y * c, c, c);
+                    ctx.globalAlpha = 1;
+                }
             }
         }
         // Labels above every mark.
-        for (const mark of overlay.marks)
-            this.drawLabel(ctx, mark);
+        for (const overlay of overlays) {
+            for (const mark of overlay.marks)
+                this.drawLabel(ctx, mark);
+        }
     }
     /** A line through the cells' centres, with a dot where it ends. */
     drawPath(ctx, cells, colour) {

@@ -95,3 +95,20 @@ export function inspect(data, turn) {
         };
     });
 }
+/**
+ * The marks to draw at a turn, from its panels. With both players', each
+ * label starts with its player's letter, so two bots' paths stay apart
+ * even in the same colour.
+ */
+export function overlays(panels, of) {
+    if (of === null)
+        return [];
+    if (of !== "both") {
+        const panel = panels[of];
+        return panel ? [{ player: of, marks: panel.marks }] : [];
+    }
+    return panels.map((panel) => ({
+        player: panel.player,
+        marks: panel.marks.map((mark) => mark.label === null ? mark : { ...mark, label: `${letter(panel.player)} ${mark.label}` }),
+    }));
+}

@@ -1,11 +1,11 @@
 // The turn inspector, beside the maze: one panel per player, and whose
-// marks are drawn on the maze.
+// marks are drawn on the maze (one player's, both, or nobody's).
 
 import { h, replace } from "../dom.ts";
 import type { Mark } from "../types.ts";
 import type { Overlay } from "./canvas.ts";
 import type { GameData } from "./data.ts";
-import { inspect, type PlayerPanel } from "./inspect.ts";
+import { inspect, type MarksOf, overlays, type PlayerPanel } from "./inspect.ts";
 
 export class Inspector {
   readonly element: HTMLElement;
@@ -13,8 +13,7 @@ export class Inspector {
   private readonly body: HTMLElement;
   private readonly choice: HTMLSelectElement;
   private panels: PlayerPanel[] = [];
-  /** Whose marks are drawn; `null` for nobody. */
-  private marksOf: number | null = 0;
+  private marksOf: MarksOf = 0;
 
   constructor(data: GameData, redraw: () => void) {
     this.data = data;
@@ -23,13 +22,15 @@ export class Inspector {
       {
         "aria-label": "Marks drawn on the maze",
         onchange: () => {
-          this.marksOf = this.choice.value === "" ? null : Number(this.choice.value);
+          const value = this.choice.value;
+          this.marksOf = value === "" ? null : value === "both" ? "both" : Number(value);
           redraw();
         },
       },
       data.players.map((p, i) =>
         h("option", { value: i }, `${i === 0 ? "A" : "B"} ${p.name}'s marks`),
       ),
+      data.players.length > 1 ? h("option", { value: "both" }, "both players' marks") : null,
       h("option", { value: "" }, "no marks"),
     );
     this.body = h("div", { class: "panels" });
@@ -42,10 +43,8 @@ export class Inspector {
   }
 
   /** What to draw over the maze at the shown turn. */
-  overlay(): Overlay | null {
-    if (this.marksOf === null) return null;
-    const panel = this.panels[this.marksOf];
-    return panel ? { player: this.marksOf, marks: panel.marks } : null;
+  overlays(): Overlay[] {
+    return overlays(this.panels, this.marksOf);
   }
 
   show(turn: number): void {

@@ -1,33 +1,30 @@
 // The turn inspector, beside the maze: one panel per player, and whose
-// marks are drawn on the maze.
+// marks are drawn on the maze (one player's, both, or nobody's).
 import { h, replace } from "../dom.js";
-import { inspect } from "./inspect.js";
+import { inspect, overlays } from "./inspect.js";
 export class Inspector {
     element;
     data;
     body;
     choice;
     panels = [];
-    /** Whose marks are drawn; `null` for nobody. */
     marksOf = 0;
     constructor(data, redraw) {
         this.data = data;
         this.choice = h("select", {
             "aria-label": "Marks drawn on the maze",
             onchange: () => {
-                this.marksOf = this.choice.value === "" ? null : Number(this.choice.value);
+                const value = this.choice.value;
+                this.marksOf = value === "" ? null : value === "both" ? "both" : Number(value);
                 redraw();
             },
-        }, data.players.map((p, i) => h("option", { value: i }, `${i === 0 ? "A" : "B"} ${p.name}'s marks`)), h("option", { value: "" }, "no marks"));
+        }, data.players.map((p, i) => h("option", { value: i }, `${i === 0 ? "A" : "B"} ${p.name}'s marks`)), data.players.length > 1 ? h("option", { value: "both" }, "both players' marks") : null, h("option", { value: "" }, "no marks"));
         this.body = h("div", { class: "panels" });
         this.element = h("div", { class: "inspector" }, h("div", { class: "inspector-head" }, this.choice), this.body);
     }
     /** What to draw over the maze at the shown turn. */
-    overlay() {
-        if (this.marksOf === null)
-            return null;
-        const panel = this.panels[this.marksOf];
-        return panel ? { player: this.marksOf, marks: panel.marks } : null;
+    overlays() {
+        return overlays(this.panels, this.marksOf);
     }
     show(turn) {
         this.panels = inspect(this.data, turn);

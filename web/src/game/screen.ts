@@ -34,7 +34,7 @@ export class GameScreen {
         inspector.show(turn);
         charts.mark(turn);
       },
-      overlay: () => inspector.overlay(),
+      overlays: () => inspector.overlays(),
       heat: (turn) => heatmap.layer(turn),
     });
     this.view = view;

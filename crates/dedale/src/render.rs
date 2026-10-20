@@ -28,8 +28,9 @@ pub struct Frame<'a> {
     pub max_turns: u32,
     /// The turn that led to this state, for moves, outcomes and timings.
     pub last: Option<&'a TurnRecord>,
-    /// Cells to highlight (usually one player's marks for that turn).
-    pub marks: &'a [Mark],
+    /// Cells to highlight: the marks of the players shown for that turn, as
+    /// `(player, marks)`.
+    pub marks: &'a [(usize, &'a [Mark])],
 }
 
 const LABELS: [char; 2] = ['A', 'B'];
@@ -39,11 +40,15 @@ pub fn render(frame: &Frame<'_>, style: Style) -> String {
     let mut out = header(frame, style);
     let snapshot = frame.snapshot;
     let board = &snapshot.board;
-    // The last mark on a cell wins.
-    let marked: HashMap<Pos, &Mark> = frame
+    // The last mark on a cell wins (B's over A's).
+    let marked: HashMap<Pos, (usize, &Mark)> = frame
         .marks
         .iter()
-        .flat_map(|m| m.cells.iter().map(move |&pos| (pos, m)))
+        .flat_map(|&(player, marks)| {
+            marks
+                .iter()
+                .flat_map(move |m| m.cells.iter().map(move |&pos| (pos, (player, m))))
+        })
         .collect();
     for y in 0..board.height() {
         let mut line = String::new();
@@ -56,7 +61,10 @@ pub fn render(frame: &Frame<'_>, style: Style) -> String {
                 ([i], _) => (player_glyph(*i), if *i == 0 { GREEN } else { RED }),
                 ([_, ..], _) => ("X ", MAGENTA),
                 ([], Cell::Wall) => (if style.ascii { "##" } else { "██" }, ""),
-                ([], _) if marked.contains_key(&pos) => mark_glyph(marked[&pos], style),
+                ([], _) if marked.contains_key(&pos) => {
+                    let (player, mark) = marked[&pos];
+                    mark_glyph(player, mark, style)
+                }
                 ([], Cell::Point) => (if style.ascii { ". " } else { "· " }, YELLOW),
                 ([], Cell::Empty) => ("  ", ""),
             };
@@ -68,8 +76,9 @@ pub fn render(frame: &Frame<'_>, style: Style) -> String {
     out
 }
 
-/// A marked cell: `∘` for cells, `•` along a path, in the mark's colour.
-fn mark_glyph(mark: &Mark, style: Style) -> (&'static str, &'static str) {
+/// A marked cell: `∘` for cells, `•` along a path, in the mark's colour or
+/// else its player's.
+fn mark_glyph(player: usize, mark: &Mark, style: Style) -> (&'static str, &'static str) {
     let glyph = match (mark.kind, style.ascii) {
         (MarkKind::Cells, false) => "∘ ",
         (MarkKind::Cells, true) => "+ ",
@@ -77,7 +86,14 @@ fn mark_glyph(mark: &Mark, style: Style) -> (&'static str, &'static str) {
         (MarkKind::Path, true) => "* ",
     };
     let color = match mark.color {
-        None => CYAN,
+        // The players' colours (A green, B red), not bold.
+        None => {
+            if player == 0 {
+                "\x1b[32m"
+            } else {
+                "\x1b[31m"
+            }
+        }
         Some(MarkColor::Red) => "\x1b[31m",
         Some(MarkColor::Orange) => "\x1b[38;5;208m",
         Some(MarkColor::Yellow) => "\x1b[33m",
@@ -97,7 +113,6 @@ fn player_glyph(i: usize) -> &'static str {
 const GREEN: &str = "\x1b[1;32m";
 const RED: &str = "\x1b[1;31m";
 const MAGENTA: &str = "\x1b[1;35m";
-const CYAN: &str = "\x1b[36m";
 const YELLOW: &str = "\x1b[33m";
 const RESET: &str = "\x1b[0m";
 
@@ -280,7 +295,7 @@ A · · · ·
             names: &names,
             max_turns: 100,
             last: Some(&last),
-            marks: &marks,
+            marks: &[(0, &marks)],
         };
         let want = "\
 turn 4/100 · 7 points left
@@ -293,6 +308,38 @@ B random     3.5  up     illegal    850 µs
 · · · ·
 ";
         assert_eq!(render(&frame, Style::default()), want);
+    }
+
+    #[test]
+    fn both_players_marks_in_their_colours() {
+        let game = Game::new(Maze::parse(RING).unwrap(), Seating::Duo, 100);
+        let names = names(2);
+        let mark = |cells: &[(u8, u8)], kind| Mark {
+            cells: cells.iter().map(|&(x, y)| Pos::new(x, y)).collect(),
+            label: None,
+            color: None,
+            kind,
+        };
+        let a = [mark(&[(1, 0), (2, 0)], MarkKind::Cells)];
+        let b = [mark(&[(2, 0), (3, 0)], MarkKind::Path)];
+        let frame = Frame {
+            snapshot: game.snapshot(),
+            names: &names,
+            max_turns: 100,
+            last: None,
+            marks: &[(0, &a), (1, &b)],
+        };
+        // B's mark wins (2, 0).
+        let plain = render(&frame, Style::default());
+        assert!(plain.contains("A ∘ • • ·\n"), "{plain}");
+        let color = render(
+            &frame,
+            Style {
+                ascii: false,
+                color: true,
+            },
+        );
+        assert!(color.contains("\x1b[32m∘ \x1b[0m\x1b[31m• "), "{color}");
     }
 
     #[test]
@@ -350,7 +397,7 @@ B random     3.5  up     illegal    850 µs
             names: &names,
             max_turns: 100,
             last: None,
-            marks: &marks,
+            marks: &[(0, &marks)],
         };
         let plain = render(&frame, Style::default());
         // The later mark wins (3, 0).

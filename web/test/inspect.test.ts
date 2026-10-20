@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { fromRecord, type GameData } from "../src/game/data.ts";
-import { exitSummary, inspect } from "../src/game/inspect.ts";
+import { exitSummary, inspect, overlays } from "../src/game/inspect.ts";
 import { describeMark } from "../src/game/inspector.ts";
 import type { GameRecord } from "../src/types.ts";
 import { parseReplay } from "../src/validate.ts";
@@ -162,4 +162,28 @@ test("sandboxed games say so at startup, with each bot's CPU", () => {
   const [a, b] = inspect(sandboxed, 0);
   assert.equal(field(a ?? { fields: [] }, "sandbox")?.value, "on, CPU 11");
   assert.equal(field(b ?? { fields: [] }, "sandbox")?.value, "on");
+});
+
+test("one player's marks, both players', or none", () => {
+  const game = data((r) => {
+    r.turns[0].players[0].marks = [{ cells: [[0, 0]], label: "route", color: null, kind: "path" }];
+    r.turns[0].players[1].marks = [
+      { cells: [[4, 4]], label: "path", color: "teal", kind: "path" },
+      { cells: [[2, 2]], label: null, color: null, kind: "cells" },
+    ];
+  });
+  const panels = inspect(game, 1);
+  const labels = (of: Parameters<typeof overlays>[1]) =>
+    overlays(panels, of).map((o) => [o.player, o.marks.map((m) => m.label)]);
+  assert.deepEqual(labels(0), [[0, ["route"]]]);
+  assert.deepEqual(labels(1), [[1, ["path", null]]]);
+  assert.deepEqual(labels("both"), [
+    [0, ["A route"]],
+    [1, ["B path", null]],
+  ]);
+  assert.deepEqual(labels(null), []);
+  assert.deepEqual(labels(2), [], "nobody's marks for a player who is not there");
+  const [, b] = overlays(panels, "both");
+  assert.deepEqual(b?.marks[0]?.cells, [[4, 4]], "only the label changes");
+  assert.equal(b?.marks[0]?.color, "teal");
 });

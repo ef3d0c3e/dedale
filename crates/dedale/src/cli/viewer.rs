@@ -146,7 +146,7 @@ fn view(record: &GameRecord, turn: u32, player: usize, style: Style) -> String {
         names: &names,
         max_turns: record.config.max_turns,
         last,
-        marks,
+        marks: &[(player, marks)],
     };
     let mut out = render(&frame, style);
     let label = LABELS[player];
