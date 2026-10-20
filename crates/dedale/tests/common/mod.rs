@@ -32,6 +32,16 @@ pub fn python() -> String {
     std::env::var("DEDALE_PYTHON").unwrap_or_else(|_| "python3".to_owned())
 }
 
+/// A sandbox test on a machine where the sandbox cannot run: skipped, or a
+/// failure when `DEDALE_REQUIRE_SANDBOX` is set (as in CI, where it must run).
+pub fn no_sandbox(why: &dyn std::fmt::Display) {
+    assert!(
+        std::env::var_os("DEDALE_REQUIRE_SANDBOX").is_none(),
+        "DEDALE_REQUIRE_SANDBOX is set, but the sandbox cannot run: {why}"
+    );
+    eprintln!("skipped: {why}");
+}
+
 /// The repository root.
 pub fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")

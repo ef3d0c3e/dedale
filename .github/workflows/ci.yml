@@ -1,0 +1,83 @@
+# Every quality gate of scripts/check.sh, on each push to master and each
+# pull request: rustfmt, clippy, the Rust and Python tests, the web checks,
+# the browser end to end, cargo-deny. Third-party actions are pinned by
+# commit.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Pinned so that a new release's lints (clippy runs with -D warnings) only
+  # arrive when this is bumped; scripts/check.sh also checks the runner's
+  # latest stable compiles.
+  RUST_VERSION: "1.95.0"
+
+jobs:
+  check:
+    name: scripts/check.sh
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      # The sandbox tests must run here rather than skip.
+      DEDALE_REQUIRE_SANDBOX: "1"
+      # The runner's Chrome, for the end-to-end tests.
+      DEDALE_CHROMIUM: google-chrome
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Rust ${{ env.RUST_VERSION }}, with rustfmt and clippy
+        run: |
+          rustup toolchain install "$RUST_VERSION" --profile minimal --component rustfmt,clippy
+          rustup default "$RUST_VERSION"
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: |
+            . -> target
+            fuzz -> target
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        with:
+          tool: cargo-deny@0.20.2
+
+      - name: Sandbox tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bubblewrap
+          # Ubuntu 24.04 keeps unprivileged programs such as bubblewrap from
+          # creating user namespaces; the sandbox needs them.
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
+      - name: Versions
+        run: |
+          rustc --version
+          node --version
+          python3 --version
+          bwrap --version
+          "$DEDALE_CHROMIUM" --version
+          cargo deny --version
+
+      - name: scripts/check.sh
+        run: scripts/check.sh

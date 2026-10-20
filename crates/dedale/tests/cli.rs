@@ -197,7 +197,7 @@ fn a_sandboxed_run() {
 
     let python = common::python();
     if let Err(e) = Sandbox::new(Limits::default(), OsStr::new(&python)) {
-        eprintln!("skipped: {e}");
+        common::no_sandbox(&e);
         return;
     }
     let dir = tempfile::tempdir().unwrap();

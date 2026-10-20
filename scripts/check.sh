@@ -62,7 +62,9 @@ step "end to end"
 (cd web && npm run --silent e2e)
 
 step "stable build"
-if rustup toolchain list | grep -q '^stable'; then
+if rustup show active-toolchain | grep -q '^stable'; then
+    echo "skipped: the checks above already ran on stable"
+elif rustup toolchain list | grep -q '^stable'; then
     rustup run stable cargo check --workspace --all-targets --all-features --locked
 else
     echo "skipped: no stable toolchain installed"

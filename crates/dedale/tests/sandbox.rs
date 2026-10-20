@@ -74,7 +74,7 @@ fn sandbox(limits: Limits) -> Option<Sandbox> {
     match Sandbox::new(limits, OsStr::new(&python())) {
         Ok(sandbox) => Some(sandbox),
         Err(e) => {
-            eprintln!("skipped: {e}");
+            common::no_sandbox(&e);
             None
         }
     }

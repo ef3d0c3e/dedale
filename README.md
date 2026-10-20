@@ -404,4 +404,10 @@ end-to-end tests in headless Chromium, a stable-toolchain build and
 target. The browser app's compiled files (`web/dist/`) are committed, so
 building Dedale itself needs only Cargo.
 
+GitHub Actions runs the same script on every push to `master` and every
+pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), on
+Ubuntu 24.04 with a pinned Rust, the runner's Chrome, and bubblewrap so
+that the sandbox tests run (`DEDALE_REQUIRE_SANDBOX=1` makes them fail
+rather than skip when the sandbox cannot start).
+
 License: MIT.
