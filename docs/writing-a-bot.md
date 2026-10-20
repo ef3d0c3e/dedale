@@ -286,7 +286,10 @@ examples against each other.
 
 ## Before you compete
 
-Competitions run every bot in Dedale's sandbox (`--sandbox`). There, a bot:
+The [competition](https://github.com/ef3d0c3e/dedale-submissions) takes
+bots by pull request; its README says how to submit one and which
+libraries it has. Competitions run every bot in Dedale's sandbox
+(`--sandbox`). There, a bot:
 
 - can count on the standard library and on the packages the competition
   lists; its own directory is readable, so helper modules next to the bot

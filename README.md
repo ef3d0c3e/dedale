@@ -14,13 +14,19 @@ move. Dedale records every game as a replay with full timing and error
 analytics, which it can rewind turn by turn, in the terminal or in its
 browser app, live or afterwards.
 
+**Compete**: submit your bot to
+[dedale-submissions](https://github.com/ef3d0c3e/dedale-submissions) by pull
+request. Bots play each other after every merge, and the
+[ranking](https://ef3d0c3e.github.io/dedale-submissions/) is published.
+
 [Install it](#installation), then watch two of the example bots race:
 
 ```sh
 dedale run examples/python/greedy_bot.py examples/python/tour_bot.py --watch --delay 50
 ```
 
-Want to write a bot? Start with [Writing a bot](docs/writing-a-bot.md).
+Want to write a bot? Start with [Writing a bot](docs/writing-a-bot.md), then
+[submit it](https://github.com/ef3d0c3e/dedale-submissions#submitting-a-bot).
 
 ## Contents
 
