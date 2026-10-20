@@ -506,10 +506,11 @@ rather than skip when the sandbox cannot start). A macOS job builds
 `dedale` and plays a game with it (the tests themselves need Linux).
 
 **Releases.** Set the new version in `Cargo.toml` and
-`bindings/python/pyproject.toml`, commit, then tag and push the tag
+`bindings/python/pyproject.toml`, describe it in
+[`CHANGELOG.md`](CHANGELOG.md), commit, then tag and push the tag
 (`git tag v0.2.0 && git push origin v0.2.0`). The
-[release workflow](.github/workflows/release.yml) checks that the tag and
-both versions agree, runs the CI checks, builds `dedale` for each platform
+[release workflow](.github/workflows/release.yml) checks that the tag, both
+versions and the changelog agree, runs the CI checks, builds `dedale` for each platform
 (`--profile dist`: thin LTO, stripped), has each binary play and verify a
 game, and drafts a GitHub release with the archives and `SHA256SUMS`, to
 review and publish. Run by hand (Actions, Release, Run workflow), it builds

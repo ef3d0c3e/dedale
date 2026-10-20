@@ -42,6 +42,10 @@ jobs:
             echo "::error::the tag is $GITHUB_REF_NAME, but the version is $crate"
             exit 1
           fi
+          if ! grep -q "^## $crate\( \|$\)" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no section for $crate"
+            exit 1
+          fi
           echo "version=$crate" >> "$GITHUB_OUTPUT"
 
   check:
@@ -102,7 +106,7 @@ jobs:
         run: |
           name="dedale-$TARGET"
           mkdir -p "dist/$name/examples" "dist/$name/docs" "dist/$name/bindings/python"
-          cp "target/$TARGET/dist/dedale" README.md LICENSE "dist/$name/"
+          cp "target/$TARGET/dist/dedale" README.md CHANGELOG.md LICENSE "dist/$name/"
           cp docs/*.md "dist/$name/docs/"
           cp -R examples/python "dist/$name/examples/"
           cp -R bindings/python/README.md bindings/python/pyproject.toml bindings/python/dedale \
@@ -127,6 +131,10 @@ jobs:
       VERSION: ${{ needs.version.outputs.version }}
       GH_TOKEN: ${{ github.token }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: dedale-*
@@ -139,8 +147,17 @@ jobs:
 
       - name: Draft the release
         run: |
-          cat > notes.md <<EOF
-          Prebuilt \`dedale\` $VERSION. Download the archive for your platform:
+          # The version's section of the changelog, then how to install.
+          awk -v version="$VERSION" '
+            index($0, "## " version) == 1 { on = 1; next }
+            /^## / && on { exit }
+            on
+          ' CHANGELOG.md > notes.md
+          cat >> notes.md <<EOF
+
+          ## Install
+
+          Download the archive for your platform:
 
           | Platform | Archive |
           |---|---|
