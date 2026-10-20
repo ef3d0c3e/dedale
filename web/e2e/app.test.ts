@@ -258,6 +258,8 @@ test("a live run: started, paced and assembled by the page", async () => {
     await page.choose("Heatmap", "order");
     await page.choose("Speed", "25");
 
+    // The wait between turns sits next to the bots' real time limit.
+    assert.equal(await page.text(".live-controls .limit"), "· bots: 100 ms per move");
     await page.choose("Delay between turns", "25");
     await page.waitFor(
       "document.querySelector('.live-controls').textContent.includes('25 ms between turns')",

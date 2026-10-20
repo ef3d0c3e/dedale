@@ -356,9 +356,11 @@ game to open it, and Back to return.
 you press **Start** in the page (it shows the bots, the timings and, for a
 single game, the maze). Then:
 
-- **Pause** and **Resume**, and a **delay** between turns, from any tab.
-  Dedale holds the game between turns only: a bot's clock starts when it is
-  asked to move, so pausing never costs it a timeout.
+- **Pause** and **Resume**, and a **wait between turns**, from any tab.
+  Both are for watching: Dedale holds the game between turns only, and a
+  bot's clock starts when it is asked to move, so they never cost a timeout
+  and never change the bots' time per move (`--move-ms`, shown next to
+  them).
 - The view **follows** the newest turn. Go back to study an earlier turn
   and it stays there; **Follow live** catches up again. The inspector,
   heatmaps and charts update as turns arrive.

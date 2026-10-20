@@ -12,6 +12,9 @@ import { table } from "../table.js";
 import { message } from "./view.js";
 /** The game screen refreshes at most this often while turns stream in. */
 const REFRESH_MS = 100;
+/** The wait between turns is for watching, not the bots' time limit. */
+const WAIT_HELP = "Slows the game down for watching: Dedale waits this long between turns. " +
+    "Bots are not timed while it waits, and their time per move stays as set when starting (--move-ms).";
 export function live(container, ctx) {
     if (ctx.session.mode === "browse") {
         ctx.navigate({ page: "home" });
@@ -59,7 +62,10 @@ export function live(container, ctx) {
                 .control({ delay_ms: Number(delay.value) })
                 .catch((e) => ctx.error(message(e)));
         },
-    }, DELAYS.map((d) => h("option", { value: d }, d === 0 ? "no delay" : `${d} ms delay`)));
+    }, DELAYS.map((d) => h("option", { value: d }, d === 0 ? "none" : `${d} ms`)));
+    const wait = h("label", { class: "wait", title: WAIT_HELP }, "Wait between turns ", delay);
+    // The bots' real limit, in sight while the game runs.
+    const limit = h("span", { class: "limit muted", title: "A later answer is a timeout" });
     const follow = h("button", {
         type: "button",
         onclick: () => {
@@ -74,7 +80,7 @@ export function live(container, ctx) {
     const standings = h("div", { class: "standings" });
     const gameTitle = h("h3", {});
     const gameBox = h("div", { class: "current" });
-    replace(container, h("div", { class: "toolbar" }, h("h2", {}, ctx.session.title), phase, connection), h("div", { class: "live-controls" }, start, pause, delay, paceText, follow), notice, intro, standings, gameTitle, gameBox);
+    replace(container, h("div", { class: "toolbar" }, h("h2", {}, ctx.session.title), phase, connection), h("div", { class: "live-controls" }, start, pause, wait, paceText, limit, follow), notice, intro, standings, gameTitle, gameBox);
     let shown = null;
     let frame = null;
     let lastRefresh = 0;
@@ -170,7 +176,9 @@ export function live(container, ctx) {
         const pace = controller.state.pace;
         start.hidden = state !== "waiting";
         const running = state === "running";
-        pause.hidden = delay.hidden = paceText.hidden = !(running || state === "waiting");
+        pause.hidden = wait.hidden = paceText.hidden = !(running || state === "waiting");
+        const config = controller.game?.start.config ?? session?.start?.config;
+        limit.textContent = config ? `· bots: ${config.move_ms} ms per move` : "";
         pause.textContent = pace.paused ? "Resume" : "Pause";
         delay.value = String(nearestDelay(pace.delay_ms));
         paceText.textContent = paceLabel(pace);

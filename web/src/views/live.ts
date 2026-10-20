@@ -17,6 +17,11 @@ import { message } from "./view.ts";
 /** The game screen refreshes at most this often while turns stream in. */
 const REFRESH_MS = 100;
 
+/** The wait between turns is for watching, not the bots' time limit. */
+const WAIT_HELP =
+  "Slows the game down for watching: Dedale waits this long between turns. " +
+  "Bots are not timed while it waits, and their time per move stays as set when starting (--move-ms).";
+
 interface Shown {
   /** 0 for the preview before Start. */
   game: number;
@@ -81,8 +86,11 @@ export function live(container: HTMLElement, ctx: Context): View {
           .catch((e: unknown) => ctx.error(message(e)));
       },
     },
-    DELAYS.map((d) => h("option", { value: d }, d === 0 ? "no delay" : `${d} ms delay`)),
+    DELAYS.map((d) => h("option", { value: d }, d === 0 ? "none" : `${d} ms`)),
   );
+  const wait = h("label", { class: "wait", title: WAIT_HELP }, "Wait between turns ", delay);
+  // The bots' real limit, in sight while the game runs.
+  const limit = h("span", { class: "limit muted", title: "A later answer is a timeout" });
   const follow = h(
     "button",
     {
@@ -104,7 +112,7 @@ export function live(container: HTMLElement, ctx: Context): View {
   replace(
     container,
     h("div", { class: "toolbar" }, h("h2", {}, ctx.session.title), phase, connection),
-    h("div", { class: "live-controls" }, start, pause, delay, paceText, follow),
+    h("div", { class: "live-controls" }, start, pause, wait, paceText, limit, follow),
     notice,
     intro,
     standings,
@@ -227,7 +235,9 @@ export function live(container: HTMLElement, ctx: Context): View {
     const pace = controller.state.pace;
     start.hidden = state !== "waiting";
     const running = state === "running";
-    pause.hidden = delay.hidden = paceText.hidden = !(running || state === "waiting");
+    pause.hidden = wait.hidden = paceText.hidden = !(running || state === "waiting");
+    const config = controller.game?.start.config ?? session?.start?.config;
+    limit.textContent = config ? `· bots: ${config.move_ms} ms per move` : "";
     pause.textContent = pace.paused ? "Resume" : "Pause";
     delay.value = String(nearestDelay(pace.delay_ms));
     paceText.textContent = paceLabel(pace);
