@@ -18,11 +18,11 @@ pub struct MazeArgs {
     /// Maze size, odd sides from 5 to 255 [default: 31x31].
     #[arg(long, value_name = "WxH", value_parser = parse_size)]
     pub size: Option<(u32, u32)>,
-    /// Share of dead ends opened into loops, in percent [default: 25].
+    /// Share of dead ends opened into loops, in percent [default: 80].
     #[arg(long, value_name = "PERCENT")]
     pub loops: Option<u32>,
     /// Number of points; more than the maze holds means all of them
-    /// [default: all].
+    /// [default: 50].
     #[arg(long, value_name = "N")]
     pub points: Option<u32>,
     /// Seed, up to 16 hex digits [default: random].

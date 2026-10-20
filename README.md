@@ -22,9 +22,11 @@ cargo build --release
 - The maze is a grid of walls, empty cells and points, with odd sides
   (default 31×31) and **180° rotational symmetry**: walls and points look the
   same from both corners. Player A starts top-left at `(0, 0)`, player B
-  bottom-right. Every open cell is reachable. You choose how many points the
-  maze holds (`--points`); by default every open cell except the starts holds
-  one.
+  bottom-right. Every open cell is reachable, and corridors loop: by default
+  80% of the dead ends are opened (`--loops`), so there is usually more than
+  one way to a point. You choose how many points the maze holds
+  (`--points`, default 50; more than it has open cells means every open cell
+  but the starts).
 - Coordinates are `(x, y)`: origin top-left, `x` to the right, `y` down.
 - Every turn, each bot answers `up`, `down`, `left`, `right` or `stay`. Both
   moves happen **at the same time**. Characters never block each other: they
@@ -141,12 +143,13 @@ For editor completion, install the package: `pip install -e bindings/python`.
 ### Beyond greedy
 
 Two more examples in `examples/python/` beat the greedy bot, each with
-one idea. Measured on 31×31 mazes with `dedale tournament`:
+one idea. Measured on the default mazes (31×31, 80% loops, 50 points) with
+`dedale tournament`:
 
 | Bot | Idea | Solo: turns to clear | Duo against greedy |
 |---|---|---|---|
-| `tour_bot.py` | Plans the whole route in `init()`: nearest point first, then 2-opt (reverse any stretch that makes the route shorter), on maze distances | 12% fewer than greedy (16% with 100 points) | loses, 4 games to 6 |
-| `rollout_bot.py` | For each move, plays the game out with both players greedy, and keeps the move with the best ending | 10% fewer | wins 19 games of 20, one drawn, with 56–58% of the points |
+| `tour_bot.py` | Plans the whole route in `init()`: nearest point first, then 2-opt (reverse any stretch that makes the route shorter), on maze distances | 12% fewer than greedy | loses: 1 win, 5 draws and 4 losses in 10 games, with 45% of the points |
+| `rollout_bot.py` | For each move, plays the game out with both players greedy, and keeps the move with the best ending | 7% fewer | wins 8 games of 10, 2 drawn, with 54% of the points; and beats `tour_bot` 8 games to 1 |
 
 What they show:
 
@@ -167,12 +170,14 @@ The tables come from:
 ```sh
 dedale tournament --solo examples/python/greedy_bot.py examples/python/tour_bot.py \
     examples/python/rollout_bot.py --games 6 --seed 1
+dedale tournament examples/python/tour_bot.py examples/python/greedy_bot.py --games 5 --seed 3
 dedale tournament examples/python/rollout_bot.py examples/python/greedy_bot.py --games 5 --seed 3
+dedale tournament examples/python/rollout_bot.py examples/python/tour_bot.py --games 5 --seed 3
 ```
 
-Add `--points 100` for sparse mazes, and `--view` to watch them think: the
-maze shows `tour_bot`'s route and next stops and `rollout_bot`'s playout,
-as each bot draws them.
+Add `--loops 25 --points 65535` for the older, fuller mazes, and `--view`
+to watch them think: the maze shows `tour_bot`'s route and next stops and
+`rollout_bot`'s playout, as each bot draws them.
 
 ## Commands
 
@@ -184,7 +189,7 @@ Plays one game. The maze's **code** is printed first: pass it back with
 | Option | |
 |---|---|
 | `--maze CODE` | The maze of a code, e.g. `ded2-31x31-l25-p534-9f3a0c11d2e4b6a8` |
-| `--size WxH`, `--loops %`, `--points N`, `--seed HEX` | Generate a maze (defaults 31x31, 25, every open cell, random) |
+| `--size WxH`, `--loops %`, `--points N`, `--seed HEX` | Generate a maze (defaults 31x31, 80, 50, random) |
 | `--map FILE` | Load a maze from a text file (`#` wall, `.` point, `_` empty) |
 | `--startup-ms`, `--move-ms`, `--max-turns` | Timing and turn limit |
 | `--swap` | Start the first bot bottom-right |

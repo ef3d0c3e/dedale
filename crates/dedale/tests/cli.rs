@@ -78,14 +78,14 @@ fn point_counts_are_capped() {
     };
     assert_eq!(
         maze("10"),
-        (10, "ded2-11x11-l25-p10-0000000000000007".to_owned())
+        (10, "ded2-11x11-l80-p10-0000000000000007".to_owned())
     );
     // The centre of an 11×11 maze is a pillar: points come in pairs.
     assert_eq!(maze("11").0, 10);
     let (all, code) = maze("1000000");
     let open = maze("65535");
     assert_eq!((all, &code), (open.0, &open.1));
-    assert_eq!(code, format!("ded2-11x11-l25-p{all}-0000000000000007"));
+    assert_eq!(code, format!("ded2-11x11-l80-p{all}-0000000000000007"));
 }
 
 #[test]
@@ -94,7 +94,7 @@ fn random_mazes_come_with_their_code() {
     let maze = Maze::parse(&stdout(&output)).unwrap();
     assert_eq!((maze.width(), maze.height()), (15, 9));
     let code = stderr(&output).trim().to_owned();
-    assert!(code.starts_with("ded2-15x9-l25-p"), "{code}");
+    assert!(code.starts_with("ded2-15x9-l80-p"), "{code}");
     assert!(
         code.contains(&format!("-p{}-", maze.point_count())),
         "{code}"
@@ -164,7 +164,7 @@ fn a_solo_run_writes_a_verified_replay() {
     let text = stdout(&output);
     let record = replay::read(&out.join("replay.json")).unwrap();
     let points = record.maze.point_count();
-    let code = format!("ded2-11x11-l25-p{points}-0000000000000007");
+    let code = format!("ded2-11x11-l80-p{points}-0000000000000007");
     assert!(text.starts_with(&format!("maze    {code}\n")), "{text}");
     assert_eq!(record.code.unwrap().to_string(), code);
     assert!(text.contains("result  cleared on turn"), "{text}");
