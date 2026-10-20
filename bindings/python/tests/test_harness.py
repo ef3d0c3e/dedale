@@ -323,6 +323,45 @@ class HarnessTests(unittest.TestCase):
             bot.send(turn_msg(1))
             self.assertEqual(bot.recv()["log"], ["True"])
 
+    def test_a_move_out_of_time_is_stopped(self):
+        source = """
+            import time
+            import dedale
+
+            def move():
+                if dedale.turn == 1:
+                    try:
+                        time.sleep(5)
+                    except Exception:  # cannot keep it from being stopped
+                        pass
+                    print("never")
+                return "right"
+        """
+        with Bot(source) as bot:
+            bot.start()
+            bot.send(turn_msg(1))
+            self.assertTrue(bot.nothing_within(0.3), "no answer to the turn out of time")
+            bot.send(turn_msg(2))
+            reply = bot.recv(timeout=1.0)
+            self.assertEqual((reply["turn"], reply["move"], reply["log"]), (2, "right", []))
+            self.assertLess(reply["think_us"], 100_000)
+            bot.send(END)
+            self.assertEqual(bot.wait(), 0)
+            self.assertIn("move() ran out of time on turn 1 and was stopped", bot.stderr())
+
+    def test_init_is_never_stopped(self):
+        source = """
+            import time
+
+            def init():
+                time.sleep(0.3)
+
+            def move():
+                return "stay"
+        """
+        with Bot(source) as bot:
+            self.assertEqual(bot.start(startup_ms=100)["type"], "ready")
+
     def test_sys_exit_ends_the_process(self):
         source = """
             import sys

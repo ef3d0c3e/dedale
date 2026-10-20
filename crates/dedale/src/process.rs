@@ -38,6 +38,16 @@ pub enum Output {
     Closed { at: Instant },
 }
 
+impl Output {
+    /// When it was read from the bot's stdout.
+    #[must_use]
+    pub fn at(&self) -> Instant {
+        match self {
+            Output::Line { at, .. } | Output::Oversized { at } | Output::Closed { at } => *at,
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 #[error("the bot's stdin is closed")]
 pub struct BotGone;

@@ -94,9 +94,14 @@ last turn, `Move.STAY` when it was rejected, `None` before the first turn).
 counted from when the harness read Dedale's request. Use it to stop a search
 in time: a late answer is a stay.
 
-If `move()` overruns, Dedale moves on without it. When it finally returns,
-the harness skips the turns it missed and answers the newest one, so a slow
-turn costs turns, never synchronization.
+If `move()` overruns, Dedale moves on without it: the turn is a `timeout`
+and you stay. The harness then stops `move()` (it raises an exception that
+derives from `BaseException`, not `Exception`, so `except Exception` lets it
+through), and the next turn starts with its whole budget: a slow move costs
+that turn only. Code that must survive being cut off can use `finally`.
+The harness uses `SIGALRM` for this (Linux and macOS), so leave that signal
+alone. `init()` is never stopped: a slow startup only costs the turns
+before it is done.
 
 ### Logs and marks
 

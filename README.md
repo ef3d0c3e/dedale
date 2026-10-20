@@ -45,9 +45,11 @@ cargo build --release
 - **Startup**: importing the bot and running its `init()` must fit in
   `--startup-ms` (default 2000). A bot that is late does not stop the game:
   it simply stays put until it is ready.
-- **Moves**: each `move()` must answer within `--move-ms` (default 100). A
-  late answer counts as `stay`, and the bot is asked for the next turn as
-  usual (turns it missed are skipped, so it never falls behind).
+- **Moves**: each `move()` must answer within `--move-ms` (default 100).
+  Dedale never waits longer: a turn without an answer is a `timeout`, the
+  bot stays, and the problem is reported. A Python `move()` still running
+  then is stopped, so the bot takes the next turn with its whole budget and
+  a slow move costs that turn only.
 
 ## Writing a Python bot
 
@@ -356,8 +358,7 @@ single game, the maze). Then:
 
 - **Pause** and **Resume**, and a **delay** between turns, from any tab.
   Dedale holds the game between turns only: a bot's clock starts when it is
-  asked to move, so pausing never costs it a timeout. (A bot still
-  computing a late answer keeps computing while paused.)
+  asked to move, so pausing never costs it a timeout.
 - The view **follows** the newest turn. Go back to study an earlier turn
   and it stays there; **Follow live** catches up again. The inspector,
   heatmaps and charts update as turns arrive.

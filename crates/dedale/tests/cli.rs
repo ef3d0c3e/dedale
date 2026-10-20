@@ -303,7 +303,7 @@ fn ctrl_c_stops_the_game_and_its_bots() {
     let mut child = Command::new(env!("CARGO_BIN_EXE_dedale"))
         .args([
             "run",
-            path(&test_bot("infinite_loop")),
+            path(&test_bot("unstoppable_loop")),
             path(&example_bot("greedy_bot")),
             "--max-turns",
             "100000",

@@ -30,8 +30,12 @@ dedale  → end                   exit now; killed after 1 s
 - `hello` must arrive within 10 s, or the bot is out for the whole game.
 - Turns are sent even before `ready`; until then they count as "not ready".
   After a slow startup, answer only the newest turn.
-- An answer must carry the turn it answers. Answers for turns that already
-  passed are recorded as late and ignored.
+- An answer must carry the turn it answers. Dedale never waits past the
+  move budget: a turn without an answer by then is a `timeout` (the bot
+  stays), and an answer read after it is recorded as late and ignored.
+- Give up on a turn once its budget is spent: a bot still computing it
+  misses the next turns too. The Python harness stops `move()` at that
+  point.
 
 ## Messages from Dedale
 

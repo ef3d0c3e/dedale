@@ -681,13 +681,20 @@ impl Referee<'_> {
                 return Ok(Reply::failed(Failure::Crashed));
             }
             let ready = seat.ready;
+            let missed = Reply::failed(if ready {
+                Failure::Timeout
+            } else {
+                Failure::NotReady
+            });
             let Some(output) = seat.recv_until(deadline)? else {
-                return Ok(Reply::failed(if ready {
-                    Failure::Timeout
-                } else {
-                    Failure::NotReady
-                }));
+                return Ok(missed);
             };
+            // Read after the deadline, when this thread woke up late: the
+            // turn is over all the same.
+            if output.at() > deadline {
+                self.too_late(player, turn, output);
+                return Ok(missed);
+            }
             match output {
                 Output::Line { at, line } if ready => match decode_bot_line(&line) {
                     Ok(FromBot::Move(reply)) if reply.turn == turn => {
@@ -703,6 +710,19 @@ impl Referee<'_> {
                 other => self.background(player, turn, other),
             }
         }
+    }
+
+    /// An output read after the deadline of `turn`: the reply to it is late,
+    /// anything else is handled as if it came between turns.
+    fn too_late(&mut self, player: usize, turn: u32, output: Output) {
+        if let Output::Line { line, .. } = &output
+            && let Ok(FromBot::Move(reply)) = decode_bot_line(line)
+            && reply.turn == turn
+        {
+            self.event(turn, player, EventKind::Late { for_turn: turn });
+            return;
+        }
+        self.background(player, turn, output);
     }
 
     /// Sends `end` and gives every bot one shared grace period to exit.

@@ -5,6 +5,12 @@ Usage: python -u _harness.py <bot.py>
 The protocol uses private copies of stdin and stdout: the bot's own stdin
 reads nothing, and anything it writes to stdout (``print`` or the raw file
 descriptor) ends up in its log or on stderr, never in the protocol.
+
+A ``move()`` still running when its time is up is stopped (with SIGALRM,
+where there are interval timers): Dedale has already counted the turn as a
+timeout, and stopping lets the bot take the next turn with its whole budget
+instead of losing that one too. ``init()`` is never stopped: a late startup
+only costs the turns before it.
 """
 
 from __future__ import annotations
@@ -15,6 +21,7 @@ import io
 import json
 import os
 import select
+import signal
 import sys
 import time
 import traceback
@@ -87,6 +94,21 @@ def cap_log(entries: list[str], truncated: bool) -> list[str]:
         budget -= size
     kept.append(TRUNCATED)
     return kept
+
+
+class OutOfTime(BaseException):
+    """Raised in ``move()`` when its time is up. Not an ``Exception``, so the
+    bot's own ``except Exception`` lets it through."""
+
+
+def stop(_signum: int, _frame: object) -> None:
+    raise OutOfTime
+
+
+def limit(seconds: float | None) -> None:
+    """Stops the running call after ``seconds``, or never with ``None``."""
+    if hasattr(signal, "setitimer"):
+        signal.setitimer(signal.ITIMER_REAL, 0 if seconds is None else max(seconds, 1e-6))
 
 
 class Capture:
@@ -215,12 +237,21 @@ class Harness:
         dedale._deadline = time.perf_counter() + dedale.move_timeout
         result, error = None, None
         started = time.perf_counter_ns()
-        with Capture() as capture:
-            try:
-                if self.move_fn is not None:
-                    result = self.move_fn()
-            except Exception as exc:  # reported to Dedale; SystemExit still exits
-                error = error_info(exc)
+        try:
+            with Capture() as capture:
+                limit(dedale.move_timeout)
+                try:
+                    if self.move_fn is not None:
+                        result = self.move_fn()
+                except Exception as exc:  # reported to Dedale; SystemExit still exits
+                    error = error_info(exc)
+                finally:
+                    limit(None)
+        except OutOfTime:
+            # Dedale has moved on: no answer, and the next turn on time.
+            note = f"[dedale] move() ran out of time on turn {turn} and was stopped"
+            print(note, file=sys.stderr)
+            return
         think_us = (time.perf_counter_ns() - started) // 1000
         move = None
         log = capture.log
@@ -333,6 +364,8 @@ def main(argv: list[str]) -> int:
     os.dup2(2, 1)
     sys.stdin = io.StringIO("")
     sys.stdout = sys.stderr
+    if hasattr(signal, "SIGALRM"):
+        signal.signal(signal.SIGALRM, stop)
     try:
         Harness(argv[1], Reader(proto_in), proto_out).run()
     except BrokenPipeError:

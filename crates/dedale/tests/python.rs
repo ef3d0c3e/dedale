@@ -13,10 +13,11 @@ use dedale::referee::{MatchConfig, run_match};
 use dedale_core::code::MazeCode;
 use dedale_core::game::{EndReason, Outcome, Seating};
 use dedale_core::generator::generate;
+use dedale_core::grid::Move;
 use dedale_core::maze::Maze;
 use dedale_core::protocol::About;
 use dedale_core::protocol::{MarkColor, MarkKind};
-use dedale_core::record::{EventKind, GameRecord, StartupOutcome};
+use dedale_core::record::{GameRecord, StartupOutcome};
 
 const RING: &str = "_....\n.###.\n.###.\n.###.\n...._\n";
 
@@ -301,16 +302,19 @@ fn a_slow_init_starts_late() {
 }
 
 #[test]
-fn a_slow_move_times_out_and_answers_late() {
+fn a_slow_move_costs_only_its_turn() {
     let record = play_test_bot("slow_move");
     let outcomes = outcomes(&record);
-    assert_eq!(&outcomes[..3], [Outcome::Ok, Outcome::Ok, Outcome::Timeout]);
-    assert_eq!(outcomes.last(), Some(&Outcome::Ok));
-    let late_for_3 = record
-        .events
-        .iter()
-        .any(|e| e.kind == EventKind::Late { for_turn: 3 });
-    assert!(late_for_3, "{:?}", record.events);
+    // Stopped when its time is up, the bot takes turn 4 on time.
+    let mut expected = vec![Outcome::Ok; outcomes.len()];
+    expected[2] = Outcome::Timeout;
+    assert_eq!(outcomes, expected);
+    assert_eq!(record.turns[2].players[0].applied, Move::Stay);
+    assert!(
+        record.events.is_empty(),
+        "no late answer: {:?}",
+        record.events
+    );
 }
 
 #[test]
@@ -379,8 +383,20 @@ fn print_spam_is_capped() {
 }
 
 #[test]
-fn an_infinite_loop_times_out_and_is_killed() {
+fn an_infinite_loop_is_stopped_when_its_time_is_up() {
     let record = play_test_bot("infinite_loop");
+    let outcomes = outcomes(&record);
+    assert_eq!(&outcomes[..2], [Outcome::Ok, Outcome::Timeout]);
+    assert!(
+        outcomes[2..].iter().all(|&o| o == Outcome::Ok),
+        "{outcomes:?}"
+    );
+    assert!(!record.players[0].exit.as_ref().unwrap().killed);
+}
+
+#[test]
+fn an_unstoppable_loop_times_out_and_is_killed() {
+    let record = play_test_bot("unstoppable_loop");
     let outcomes = outcomes(&record);
     assert_eq!(outcomes[0], Outcome::Ok);
     assert!(
