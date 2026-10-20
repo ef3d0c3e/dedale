@@ -22,7 +22,7 @@ pub struct MazeArgs {
     #[arg(long, value_name = "PERCENT")]
     pub loops: Option<u32>,
     /// Number of points; more than the maze holds means all of them
-    /// [default: 50].
+    /// [default: 40].
     #[arg(long, value_name = "N")]
     pub points: Option<u32>,
     /// Seed, up to 16 hex digits [default: random].

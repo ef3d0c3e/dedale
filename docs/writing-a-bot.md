@@ -55,7 +55,7 @@ The [rules](../README.md#rules) in full; what matters for a bot:
 - **Solo**, you want to clear the maze in as few turns as you can. **Duo**,
   you want more points than the opponent. The game also ends at a turn
   limit (`4·W·H`).
-- Your program gets **2 s** to start (import and `init()`), then **100 ms**
+- Your program gets **5 s** to start (import and `init()`), then **100 ms**
   per move. A late move is lost: you stay that turn.
 
 ## A first bot
@@ -195,7 +195,7 @@ What your bot can leave in the replay:
 ## Time
 
 **Startup.** Importing your file and running `init()` (optional) must fit in
-2 s (`--startup-ms`). That is the time to precompute: distance tables,
+5 s (`--startup-ms`). That is the time to precompute: distance tables,
 routes. A bot that is not ready in time does not lose the game, it stays put
 until it is.
 
@@ -252,7 +252,7 @@ games.
 - **Problems**: the `failures` column counts every turn that was not `ok`:
   illegal moves, timeouts, errors and the rest. Open the games with `dedale view` and press `n` to jump from one
   problem to the next.
-- **Other mazes**: a bot tuned on the defaults (31×31, 50 points) can break
+- **Other mazes**: a bot tuned on the defaults (31×31, 40 points) can break
   elsewhere. Try `--size 51x51`, `--size 11x11`, `--points 500`, `--loops 0`
   (dead ends everywhere: a wrong turn costs a long walk back), and tighter
   budgets (`--move-ms 20`).

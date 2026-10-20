@@ -57,7 +57,7 @@ pub(crate) struct RunArgs {
 #[derive(Debug, Clone, Args)]
 pub(crate) struct TimingArgs {
     /// Startup budget per bot (importing it and running its init), in milliseconds.
-    #[arg(long, value_name = "MS", default_value_t = 2000)]
+    #[arg(long, value_name = "MS", default_value_t = 5000)]
     pub startup_ms: u64,
     /// Time per move, in milliseconds.
     #[arg(long, value_name = "MS", default_value_t = 100)]

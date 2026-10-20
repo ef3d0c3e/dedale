@@ -103,7 +103,7 @@ impl MazeParams {
     }
 }
 
-/// 31×31, 80% loops, 50 points: open mazes with points worth fighting
+/// 31×31, 80% loops, 40 points: open mazes with points worth fighting
 /// over, where denying the opponent pays.
 impl Default for MazeParams {
     fn default() -> Self {
@@ -111,7 +111,7 @@ impl Default for MazeParams {
             width: 31,
             height: 31,
             loops: 80,
-            points: 50,
+            points: 40,
         }
     }
 }
@@ -260,7 +260,7 @@ mod tests {
         let small = MazeCode::new(MazeParams::new(5, 255, 0, 0).unwrap(), 1);
         assert_eq!(small.to_string(), "ded2-5x255-l0-p0-0000000000000001");
         let default = MazeCode::new(MazeParams::default(), 2);
-        assert_eq!(default.to_string(), "ded2-31x31-l80-p50-0000000000000002");
+        assert_eq!(default.to_string(), "ded2-31x31-l80-p40-0000000000000002");
         assert_eq!(
             default.with_points(534).to_string(),
             "ded2-31x31-l80-p534-0000000000000002"

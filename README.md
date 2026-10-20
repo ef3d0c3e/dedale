@@ -88,7 +88,7 @@ comes compiled in the repository, so Node is not needed.
   bottom-right. Every open cell is reachable, and corridors loop: by default
   80% of the dead ends are opened (`--loops`), so there is usually more than
   one way to a point. You choose how many points the maze holds
-  (`--points`, default 50; more than it has open cells means every open cell
+  (`--points`, default 40; more than it has open cells means every open cell
   but the starts).
 - Coordinates are `(x, y)`: origin top-left, `x` to the right, `y` down.
 - Every turn, each bot answers `up`, `down`, `left`, `right` or `stay`. Both
@@ -106,7 +106,7 @@ comes compiled in the repository, so Node is not needed.
 ### Timing
 
 - **Startup**: importing the bot and running its `init()` must fit in
-  `--startup-ms` (default 2000). A bot that is late does not stop the game:
+  `--startup-ms` (default 5000). A bot that is late does not stop the game:
   it simply stays put until it is ready.
 - **Moves**: each `move()` must answer within `--move-ms` (default 100).
   Dedale never waits longer: a turn without an answer is a `timeout`, the
@@ -211,13 +211,13 @@ For editor completion, install the package: `pip install -e bindings/python`.
 ### Beyond greedy
 
 Two more examples in `examples/python/` beat the greedy bot, each with
-one idea. Measured on the default mazes (31×31, 80% loops, 50 points) with
+one idea. Measured on the default mazes (31×31, 80% loops, 40 points) with
 `dedale tournament`:
 
 | Bot | Idea | Solo: turns to clear | Duo against greedy |
 |---|---|---|---|
-| `tour_bot.py` | Plans the whole route in `init()`: nearest point first, then 2-opt (reverse any stretch that makes the route shorter), on maze distances | 12% fewer than greedy | loses: 1 win, 5 draws and 4 losses in 10 games, with 45% of the points |
-| `rollout_bot.py` | For each move, plays the game out with both players greedy, and keeps the move with the best ending | 7% fewer | wins 8 games of 10, 2 drawn, with 54% of the points; and beats `tour_bot` 8 games to 1 |
+| `tour_bot.py` | Plans the whole route in `init()`: nearest point first, then 2-opt (reverse any stretch that makes the route shorter), on maze distances | 10% fewer than greedy | loses: no win, 5 draws and 5 losses in 10 games, with 46% of the points |
+| `rollout_bot.py` | For each move, plays the game out with both players greedy, and keeps the move with the best ending | 8% fewer | wins 4 games of 10 and draws the other 6, with 51% of the points; and beats `tour_bot` 7 games to none, 3 drawn |
 
 What they show:
 
@@ -257,7 +257,7 @@ Plays one game. The maze's **code** is printed first: pass it back with
 | Option | |
 |---|---|
 | `--maze CODE` | The maze of a code, e.g. `ded2-31x31-l25-p534-9f3a0c11d2e4b6a8` |
-| `--size WxH`, `--loops %`, `--points N`, `--seed HEX` | Generate a maze (defaults 31x31, 80, 50, random) |
+| `--size WxH`, `--loops %`, `--points N`, `--seed HEX` | Generate a maze (defaults 31x31, 80, 40, random) |
 | `--map FILE` | Load a maze from a text file (`#` wall, `.` point, `_` empty) |
 | `--startup-ms`, `--move-ms`, `--max-turns` | Timing and turn limit |
 | `--swap` | Start the first bot bottom-right |
