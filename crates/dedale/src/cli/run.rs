@@ -94,6 +94,20 @@ pub(crate) struct SandboxArgs {
 }
 
 impl SandboxArgs {
+    /// The sandbox asked for, checked to work here; `None` without
+    /// `--sandbox`.
+    pub(crate) fn sandbox(&self, python: &OsStr) -> CliResult<Option<Sandbox>> {
+        if !self.sandbox {
+            return Ok(None);
+        }
+        let limits = Limits {
+            memory_mib: self.memory_mib,
+            processes: self.processes,
+            ..Limits::default()
+        };
+        Ok(Some(Sandbox::new(limits, python)?))
+    }
+
     /// A launcher for `bots` bots, sandboxed when asked (checked to work
     /// here, its settings printed after `label`), and a CPU for each bot
     /// when sandboxed; Dedale itself keeps off those CPUs.
@@ -105,15 +119,9 @@ impl SandboxArgs {
         label: &str,
     ) -> CliResult<(Launcher, Vec<usize>)> {
         let launcher = runtime.launcher(python);
-        if !self.sandbox {
+        let Some(sandbox) = self.sandbox(python)? else {
             return Ok((launcher, Vec::new()));
-        }
-        let limits = Limits {
-            memory_mib: self.memory_mib,
-            processes: self.processes,
-            ..Limits::default()
         };
-        let sandbox = Sandbox::new(limits, python)?;
         let cpus = sandbox::cores(bots);
         sandbox::keep_off(&cpus);
         // Reentrant: the caller may hold stdout's lock.
@@ -213,7 +221,11 @@ pub(crate) fn run(args: &RunArgs) -> CliResult {
             .launcher(&runtime, &args.python, specs.len(), "sandbox ")?;
     let mut config = args.timing.config(seating);
     config.sandbox = launcher.sandbox.is_some();
-    let abouts = abouts(&specs, &launcher, config.hello_timeout);
+    // A bot that says nothing plays all the same: its game reports why.
+    let abouts: Vec<About> = abouts(&specs, &launcher, config.hello_timeout)
+        .into_iter()
+        .map(Option::unwrap_or_default)
+        .collect();
     let names = player_names(&specs, &abouts);
     let files = file_names(&specs);
     let entrants: Vec<Entrant> = specs

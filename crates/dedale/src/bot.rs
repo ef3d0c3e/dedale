@@ -50,30 +50,30 @@ impl BotSpec {
 
     /// What the bot says about itself in its `hello`: starts
     /// it, reads its first line and stops it. A Python bot's harness reads
-    /// it from the source, so none of the bot's code runs. Empty when the
-    /// bot does not start or says no `hello` within `timeout`: its game
-    /// reports why.
+    /// it from the source, so none of the bot's code runs. `None` when the
+    /// bot does not start or says no `hello` within `timeout` (a game
+    /// reports why).
     #[must_use]
-    pub fn about(&self, launcher: &Launcher, timeout: Duration) -> About {
+    pub fn about(&self, launcher: &Launcher, timeout: Duration) -> Option<About> {
         let Ok(process) = BotProcess::spawn(self.command(launcher), None) else {
-            return About::default();
+            return None;
         };
         let deadline = Instant::now() + timeout;
         // Dropping the process kills it.
         loop {
             if interrupt::requested() {
-                return About::default();
+                return None;
             }
             let slice = deadline.min(Instant::now() + interrupt::POLL);
             match process.recv_until(slice) {
                 Some(Output::Line { line, .. }) => {
                     return match decode_bot_line(&line) {
-                        Ok(FromBot::Hello(hello)) => hello.about,
-                        _ => About::default(),
+                        Ok(FromBot::Hello(hello)) => Some(hello.about),
+                        _ => None,
                     };
                 }
-                Some(_) => return About::default(),
-                None if slice >= deadline => return About::default(),
+                Some(_) => return None,
+                None if slice >= deadline => return None,
                 None => {}
             }
         }
@@ -125,7 +125,7 @@ impl BotSpec {
 
 /// [`BotSpec::about`] for every bot, all at once.
 #[must_use]
-pub fn abouts(specs: &[BotSpec], launcher: &Launcher, timeout: Duration) -> Vec<About> {
+pub fn abouts(specs: &[BotSpec], launcher: &Launcher, timeout: Duration) -> Vec<Option<About>> {
     thread::scope(|scope| {
         let probes: Vec<_> = specs
             .iter()

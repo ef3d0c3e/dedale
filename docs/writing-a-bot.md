@@ -298,7 +298,8 @@ Competitions run every bot in Dedale's sandbox (`--sandbox`). There, a bot:
 Also:
 
 - Set `NAME`, `AUTHOR` and `DESCRIPTION` as plain strings, and `VERSION`,
-  a whole number you raise with every change.
+  a whole number you raise with every change; `dedale about my_bot.py`
+  shows what Dedale reads.
 - Leave `SIGALRM` alone: the harness uses it to stop a move that is out of
   time.
 - Your stdout is yours: `print` goes to the turn's log, never to Dedale.

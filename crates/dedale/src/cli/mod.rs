@@ -1,5 +1,6 @@
 //! The `dedale` command line.
 
+mod about;
 mod maze_args;
 mod run;
 mod serve;
@@ -39,6 +40,9 @@ enum Command {
     Tournament(tournament::TournamentArgs),
     /// Browse runs and tournaments in the browser.
     View(view::BrowseArgs),
+    /// Print what bots say about themselves (name, author, description,
+    /// version), one JSON object per bot, without playing.
+    About(about::AboutArgs),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -75,6 +79,7 @@ pub fn main() -> ExitCode {
         Command::Replay(args) => viewer::run(&args),
         Command::Tournament(args) => tournament::run(&args),
         Command::View(args) => view::run(&args),
+        Command::About(args) => about::run(&args),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

@@ -29,7 +29,7 @@ fn python_bots_are_read_without_running_them() {
         description: None,
         version: Some(4),
     };
-    assert_eq!(about, expected);
+    assert_eq!(about, Some(expected));
     assert!(!marker.exists());
 }
 
@@ -45,6 +45,7 @@ fn example_bots_say_who_they_are() {
         .iter()
         .zip(abouts(&specs, &runtime.launcher(python()), WAIT))
     {
+        let about = about.unwrap_or_else(|| panic!("{name} said no hello"));
         assert!(about.name.is_some(), "{name}");
         assert_eq!(about.author.as_deref(), Some("Dedale examples"), "{name}");
         assert!(about.description.is_some(), "{name}");
@@ -53,11 +54,11 @@ fn example_bots_say_who_they_are() {
 }
 
 #[test]
-fn bots_that_say_nothing_have_nothing_said() {
+fn bots_that_say_nothing_are_told_apart_from_silent_ones() {
     let specs = [
-        // A plain hello.
+        // A plain hello: it said nothing about itself.
         BotSpec::from_path(fake_bot_path()),
-        // Silent until stopped.
+        // No hello at all. Silent until stopped.
         BotSpec::from_path("/bin/cat"),
         // Gone at once.
         BotSpec::from_path("/bin/true"),
@@ -70,7 +71,7 @@ fn bots_that_say_nothing_have_nothing_said() {
         &runtime.launcher(python()),
         Duration::from_millis(500),
     );
-    assert_eq!(found, vec![About::default(); specs.len()]);
+    assert_eq!(found, [Some(About::default()), None, None, None]);
     // Read all at once: only the silent bot waits, and only until the
     // timeout.
     assert!(started.elapsed() < Duration::from_secs(5));

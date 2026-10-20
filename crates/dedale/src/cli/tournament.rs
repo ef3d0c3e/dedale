@@ -98,7 +98,11 @@ pub(crate) fn run(args: &TournamentArgs) -> CliResult {
     // The seating is set per game.
     let mut config = args.timing.config(Seating::Solo);
     config.sandbox = launcher.sandbox.is_some();
-    let abouts = abouts(&specs, &launcher, config.hello_timeout);
+    // A bot that says nothing plays all the same: its game reports why.
+    let abouts: Vec<About> = abouts(&specs, &launcher, config.hello_timeout)
+        .into_iter()
+        .map(Option::unwrap_or_default)
+        .collect();
     let names = player_names(&specs, &abouts);
     let files = file_names(&specs);
     let entrant = |bot: usize, dir: &Path| Entrant {

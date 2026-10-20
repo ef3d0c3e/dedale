@@ -32,7 +32,7 @@ Want to write a bot? Start with [Writing a bot](docs/writing-a-bot.md).
   [`replay`](#dedale-replay-replayjson),
   [`tournament`](#dedale-tournament-bot),
   [running bots you did not write](#running-bots-you-did-not-write),
-  [`view`](#dedale-view-dir)
+  [`view`](#dedale-view-dir), [`about`](#dedale-about-bot)
 - [Browser app](#browser-app)
 - [Analytics](#analytics)
 - [Other languages](#other-languages)
@@ -351,6 +351,24 @@ apart, it does not stop a determined one.
 Opens the [browser app](#browser-app) over a directory of results (default
 `dedale-out/`). `--port N` picks the port; `--no-open` prints the address
 without opening a browser. Ctrl-C stops it.
+
+### `dedale about <bot>...`
+
+Prints what each bot says about itself, one JSON object per line, without
+playing: `path`, `said_hello` (false when the bot did not start or said no
+`hello` in time), `name`, `author`, `description` and `version` (`null`
+when not given). Python bots are read from their source, so none of their
+code runs.
+
+```sh
+$ dedale about examples/python/greedy_bot.py
+{"path":"examples/python/greedy_bot.py","said_hello":true,"name":"Greedy","author":"Dedale examples","description":"Walks to the nearest point, breadth-first.","version":1}
+```
+
+It exits with 0 whatever the bots say, leaving the judging to the caller (a
+competition's submission checks, for instance). `--hello-ms` sets how long
+a bot may take to say `hello` (default 10000); `--python` and `--sandbox`
+as for `run`.
 
 ## Browser app
 

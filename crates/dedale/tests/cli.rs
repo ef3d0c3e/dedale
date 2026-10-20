@@ -183,6 +183,44 @@ fn a_solo_run_writes_a_verified_replay() {
 }
 
 #[test]
+fn about_prints_what_each_bot_says_as_a_json_line() {
+    let greedy = example_bot("greedy_bot");
+    let output = dedale(&[
+        "about",
+        "--hello-ms",
+        "500",
+        path(&greedy),
+        "/bin/cat",
+        "/nonexistent/bot",
+    ]);
+    // Judging is the caller's job: bots that say nothing are no error.
+    assert!(output.status.success(), "{}", stderr(&output));
+    let lines: Vec<serde_json::Value> = stdout(&output)
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(lines.len(), 3, "{}", stdout(&output));
+    let first = &lines[0];
+    assert_eq!(first["path"], path(&greedy));
+    assert_eq!(first["said_hello"], true);
+    assert_eq!(first["name"], "Greedy");
+    assert_eq!(first["author"], "Dedale examples");
+    assert!(first["description"].is_string());
+    assert_eq!(first["version"], 1);
+    let silent = serde_json::json!({
+        "path": "/bin/cat",
+        "said_hello": false,
+        "name": null,
+        "author": null,
+        "description": null,
+        "version": null,
+    });
+    assert_eq!(lines[1], silent);
+    assert_eq!(lines[2]["path"], "/nonexistent/bot");
+    assert_eq!(lines[2]["said_hello"], false);
+}
+
+#[test]
 fn a_sandboxed_run() {
     let missing = dedale(&[
         "run",

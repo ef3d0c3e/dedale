@@ -119,7 +119,7 @@ and `VERSION` globals.
 
 - `dedale run` and `dedale tournament` read them once, before the first
   game: they start each bot, read its `hello` and stop it. The `hello` of
-  each game is not read again.
+  each game is not read again. `dedale about` prints them as JSON.
 - They are text for people, from strangers: Dedale removes control and
   bidirectional formatting characters, turns every run of whitespace into
   one space, trims, keeps 64 bytes of `name` and `author` and 1 KiB of

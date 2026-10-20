@@ -167,7 +167,7 @@ fn python_bots_and_programs_play_as_usual() {
     let greedy = BotSpec::from_path(example_bot("greedy_bot"));
     let fake = BotSpec::from_path(fake_bot_path());
     // Read through the sandbox too.
-    let about = greedy.about(&launcher, Duration::from_secs(10));
+    let about = greedy.about(&launcher, Duration::from_secs(10)).unwrap();
     assert_eq!(about.name.as_deref(), Some("Greedy"));
     let cpus = cores(2);
     let entrants = [&greedy, &fake]
