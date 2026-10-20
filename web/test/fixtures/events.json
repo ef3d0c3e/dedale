@@ -32,6 +32,11 @@
           },
           "players": [
             {
+              "about": {
+                "author": "Ada",
+                "description": "Laps the maze, clockwise.",
+                "name": "lap"
+              },
               "name": "lap",
               "path": "fake:lap",
               "start": [
@@ -40,6 +45,11 @@
               ]
             },
             {
+              "about": {
+                "author": null,
+                "description": null,
+                "name": null
+              },
               "name": "flaky",
               "path": "fake:flaky",
               "start": [
@@ -77,6 +87,11 @@
       },
       "players": [
         {
+          "about": {
+            "author": "Ada",
+            "description": "Laps the maze, clockwise.",
+            "name": "lap"
+          },
           "name": "lap",
           "path": "fake:lap",
           "start": [
@@ -85,6 +100,11 @@
           ]
         },
         {
+          "about": {
+            "author": null,
+            "description": null,
+            "name": null
+          },
           "name": "flaky",
           "path": "fake:flaky",
           "start": [
@@ -766,6 +786,11 @@
       "game": 1,
       "players": [
         {
+          "about": {
+            "author": "Ada",
+            "description": "Laps the maze, clockwise.",
+            "name": "lap"
+          },
           "exit": {
             "code": 0,
             "killed": false,
@@ -788,6 +813,11 @@
           }
         },
         {
+          "about": {
+            "author": null,
+            "description": null,
+            "name": null
+          },
           "exit": {
             "code": 0,
             "killed": false,

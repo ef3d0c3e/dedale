@@ -10,6 +10,7 @@ use dedale::referee::{Entrant, GameStart, MatchConfig, MatchError, Observer, run
 use dedale_core::game::{EndReason, Outcome, Seating, Snapshot};
 use dedale_core::grid::{Move, Pos};
 use dedale_core::maze::Maze;
+use dedale_core::protocol::About;
 use dedale_core::record::{EventKind, GameRecord, StartupOutcome, StartupRecord, TurnRecord};
 
 /// A corridor ring around a block of walls, 14 points.
@@ -32,6 +33,7 @@ fn entrant(name: &str, args: &[&str]) -> Entrant {
     Entrant {
         name: name.to_owned(),
         path: format!("fake:{name}"),
+        about: About::default(),
         command: fake_bot(args),
         stderr_log: None,
     }
@@ -447,6 +449,7 @@ fn wrong_player_counts_and_missing_programs_are_errors() {
     let missing = Entrant {
         name: "ghost".to_owned(),
         path: "/nonexistent".to_owned(),
+        about: About::default(),
         command: std::process::Command::new("/nonexistent/bot"),
         stderr_log: None,
     };

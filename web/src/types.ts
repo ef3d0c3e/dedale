@@ -65,9 +65,18 @@ export interface ExitRecord {
   stderr_tail: string;
 }
 
+/** What a bot says about itself; `null` for what it does not say. */
+export interface About {
+  name: string | null;
+  author: string | null;
+  description: string | null;
+}
+
 export interface PlayerRecord {
+  /** What the player is called: its declared name, else its file name. */
   name: string;
   path: string;
+  about: About;
   start: Pos;
   startup: StartupRecord;
   exit: ExitRecord | null;
@@ -186,6 +195,12 @@ export interface GameEntry {
   replay: string;
 }
 
+export interface BotInfo {
+  name: string;
+  path: string;
+  about: About;
+}
+
 /** `tournament.json`. */
 export interface TournamentReport {
   format: number;
@@ -196,7 +211,7 @@ export interface TournamentReport {
   startup_ms: number;
   move_ms: number;
   max_turns: number | null;
-  bots: { name: string; path: string }[];
+  bots: BotInfo[];
   games: GameEntry[];
   leaderboard: Standing[];
 }
@@ -258,11 +273,18 @@ export interface Pace {
   delay_ms: number;
 }
 
+export interface PlayerStart {
+  name: string;
+  path: string;
+  about: About;
+  start: Pos;
+}
+
 export interface GameStart {
   code: string | null;
   maze: MazeData;
   config: ConfigRecord;
-  players: { name: string; path: string; start: Pos }[];
+  players: PlayerStart[];
 }
 
 /** A finished game's record, besides its start and turns. */

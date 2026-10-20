@@ -357,6 +357,54 @@ class HarnessTests(unittest.TestCase):
             bot.send(turn_msg(1))
             self.assertEqual(bot.recv()["move"], "down")
 
+    def test_hello_says_who_the_bot_is_without_running_it(self):
+        source = """
+            NAME = "Wall"
+            AUTHOR: str = 'Ada'
+            DESCRIPTION = (
+                "Stays put, "
+                "forever."
+            )
+            raise RuntimeError("the module ran")
+        """
+        with Bot(source) as bot:
+            hello = bot.recv()
+            self.assertEqual(
+                hello,
+                {
+                    "type": "hello",
+                    "protocol": 1,
+                    "name": "Wall",
+                    "author": "Ada",
+                    "description": "Stays put, forever.",
+                },
+            )
+            bot.send(init_msg())
+            reply = bot.recv()
+            self.assertEqual(reply["type"], "error")
+            self.assertIn("the module ran", reply["message"])
+
+    def test_about_globals_must_be_string_literals(self):
+        source = """
+            NAME = "first"
+            NAME = AUTHOR = "last"
+            DESCRIPTION = 42
+            if True:
+                AUTHOR = "inside a block"
+            AUTHOR = AUTHOR.upper()
+            OTHER = "not read"
+
+            def move():
+                return "stay"
+        """
+        with Bot(source) as bot:
+            self.assertEqual(bot.recv(), {"type": "hello", "protocol": 1, "name": "last"})
+            bot.send(END)
+            self.assertEqual(bot.wait(), 0)
+            stderr = bot.stderr()
+            self.assertIn("DESCRIPTION is not a string literal", stderr)
+            self.assertIn("AUTHOR is not a string literal", stderr)
+
     def test_duo_state(self):
         source = """
             import dedale

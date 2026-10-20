@@ -52,28 +52,37 @@ pub(crate) fn score(half_points: u32) -> String {
     }
 }
 
-/// One row per player: score, steps, startup, latency, problems.
+/// One row per player: author (when a bot gives one), score, steps,
+/// startup, latency, problems.
 fn table(record: &GameRecord, style: Style) -> String {
-    let header = [
-        "",
-        "player",
+    let authors = record.players.iter().any(|p| p.about.author.is_some());
+    let mut header = vec!["", "player"];
+    if authors {
+        header.push("author");
+    }
+    header.extend([
         "score",
         "steps",
         "startup",
         "latency p50 / p95 / max",
         "problems",
-    ];
+    ]);
     let dash = || "-".to_owned();
-    let mut rows = vec![header.map(str::to_owned)];
+    let mut rows = vec![header.into_iter().map(str::to_owned).collect::<Vec<_>>()];
     for (i, (player, stats)) in record.players.iter().zip(&record.stats).enumerate() {
         let latency = stats.latency_us.map_or_else(dash, |s| {
             let us = |v| format_us(v, style);
             format!("{} / {} / {}", us(s.p50), us(s.p95), us(s.max))
         });
         let problems = problems(record, i, stats);
-        rows.push([
+        let mut row = vec![
             LABELS.get(i).map_or_else(String::new, char::to_string),
             player.name.clone(),
+        ];
+        if authors {
+            row.push(player.about.author.clone().unwrap_or_else(dash));
+        }
+        row.extend([
             score(stats.half_points),
             stats.steps.to_string(),
             stats
@@ -86,8 +95,9 @@ fn table(record: &GameRecord, style: Style) -> String {
                 problems.join(", ")
             },
         ]);
+        rows.push(row);
     }
-    format_table(&rows, &[2, 3])
+    format_table(&rows, if authors { &[3, 4] } else { &[2, 3] })
 }
 
 /// Rows of cells in aligned columns, two spaces apart; the columns in

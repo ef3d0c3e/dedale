@@ -94,6 +94,25 @@ test("marks keep palette colours and paths, and read anything else as Dedale doe
   ]);
 });
 
+test("older files say nothing about their bots", () => {
+  const nothing = { name: null, author: null, description: null };
+  const old = damaged(replay, (r) => {
+    for (const player of r.players) delete player.about;
+  });
+  assert.deepEqual(
+    parseReplay(old).players.map((p) => p.about),
+    [nothing, nothing],
+  );
+  const tournament = damaged(fixture("tournament.json"), (t) => {
+    for (const bot of t.bots) delete bot.about;
+  });
+  assert.deepEqual(
+    parseTournament(tournament).bots.map((b) => b.about),
+    [nothing, nothing],
+  );
+  assert.equal(parseReplay(replay).players[0]?.about.author, "Ada");
+});
+
 test("damaged tournaments are refused", () => {
   const tournament = fixture("tournament.json");
   assert.throws(() => parseTournament(damaged(tournament, (t) => (t.format = 9))), /format 9/);

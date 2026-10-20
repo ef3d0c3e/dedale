@@ -12,6 +12,7 @@ use dedale::replay::{self, ReadError};
 use dedale_core::code::MazeCode;
 use dedale_core::game::Seating;
 use dedale_core::generator::generate_normalized;
+use dedale_core::protocol::About;
 use dedale_core::record::GameRecord;
 use dedale_core::stats::compute_stats;
 use dedale_core::verify::verify;
@@ -27,12 +28,18 @@ fn game() -> GameRecord {
         Entrant {
             name: "lap".to_owned(),
             path: "fake:lap".to_owned(),
+            about: About {
+                name: Some("lap".to_owned()),
+                author: Some("Ada".to_owned()),
+                description: Some("Laps the maze, clockwise.".to_owned()),
+            },
             command: fake_bot(&["--moves", LAP, "--log", "on my way"]),
             stderr_log: None,
         },
         Entrant {
             name: "flaky".to_owned(),
             path: "fake:flaky".to_owned(),
+            about: About::default(),
             command: fake_bot(&["--moves", "up,north", "--error-at", "3"]),
             stderr_log: None,
         },

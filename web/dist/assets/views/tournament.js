@@ -1,4 +1,5 @@
 // One tournament: leaderboard and games.
+import { aboutList } from "../about.js";
 import { h, replace } from "../dom.js";
 import { describeResult } from "../format.js";
 import { leaderboard, players, replayPath, seatingName, settings } from "../results.js";
@@ -28,7 +29,7 @@ export function gamesTable(report, path) {
 export function tournament(container, ctx, path) {
     replace(container, h("p", { class: "muted" }, "Loading…"));
     ctx.api.tournament(path).then((report) => {
-        replace(container, h("h2", {}, `${report.mode} tournament: ${report.bots.map((b) => b.name).join(" vs ")}`), h("p", { class: "muted path" }, path), h("p", { class: "muted" }, settings(report)), h("h3", {}, "Leaderboard"), h("div", { class: "scroll-x" }, table(leaderboard(report.mode, report.leaderboard))), h("h3", {}, "Games"), h("div", { class: "scroll-x" }, gamesTable(report, path)));
+        replace(container, h("h2", {}, `${report.mode} tournament: ${report.bots.map((b) => b.name).join(" vs ")}`), h("p", { class: "muted path" }, path), h("p", { class: "muted" }, settings(report)), aboutList(report.bots, false), h("h3", {}, "Leaderboard"), h("div", { class: "scroll-x" }, table(leaderboard(report.mode, report.leaderboard))), h("h3", {}, "Games"), h("div", { class: "scroll-x" }, gamesTable(report, path)));
     }, (error) => ctx.error(message(error)));
     return {};
 }

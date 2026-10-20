@@ -20,6 +20,7 @@ use dedale::web::live::{GameEnd, Live, LiveMode, LiveSnapshot, Phase, Plan};
 use dedale::web::server::Server;
 use dedale_core::game::Seating;
 use dedale_core::maze::Maze;
+use dedale_core::protocol::About;
 use dedale_core::record::{GameRecord, StartupRecord, TurnRecord};
 use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
@@ -365,6 +366,7 @@ fn in_process(out: &Path, moves: &str, max_turns: u32) -> InProcess {
         let entrant = Entrant {
             name: "bot".to_owned(),
             path: "fake".to_owned(),
+            about: About::default(),
             command: fake_bot(&["--moves", &moves]),
             stderr_log: None,
         };

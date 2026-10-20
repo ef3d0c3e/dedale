@@ -12,11 +12,17 @@ game of a tournament. `dedale replay --verify` checks one against the rules.
 | `code` | Maze code, `null` for a map file |
 | `maze` | `width`, `height`, `cells`: the maze at turn 0, as in the protocol |
 | `config` | `startup_ms`, `move_ms`, `max_turns`, `seating` (`solo`, `duo`, `duo_swapped`) |
-| `players` | Per bot: `name`, `path`, `start`, `startup`, `exit` |
+| `players` | Per bot: `name`, `path`, `about`, `start`, `startup`, `exit` |
 | `turns` | One entry per turn: `turn`, `players`, `collected` |
 | `events` | Out-of-turn happenings: `{turn, player, kind: "late", for_turn}` or `{turn, player, kind: "ignored", reason}` |
 | `result` | `reason` (`cleared`, `turn_limit`, `abandoned`), `turns`, `half_points`, `winner` (`null` on a draw and in solo), `cleared_turn` |
 | `stats` | Per bot, see below |
+
+`name` is what the player is called: the name the bot gives itself, else
+its file name, with `-2` added for a second bot of the same name. `about` is
+what the bot says about itself in its `hello`, cleaned (see the
+[protocol](protocol.md#about-the-bot)): `name`, `author`, `description`, each
+`null` when not given; files written before it existed lack it.
 
 `startup`: `outcome` (`ok`, `late`, `init_error`, `timeout`, `crashed`),
 `startup_us` (measured by Dedale), `init_us` (measured by the bot), `log`,
@@ -56,6 +62,6 @@ Written by `dedale tournament` (format 1).
 | `mode` | `duo` or `solo` |
 | `maze` | `{"generated": {width, height, loops, points}}` (`points` as asked for; 65535 means every open cell) or `{"map": {path}}` |
 | `startup_ms`, `move_ms`, `max_turns` | Timing |
-| `bots` | `name`, `path` |
+| `bots` | `name`, `path`, `about` (as in a replay) |
 | `games` | `index`, `code`, `seating`, `bots` (who played, in player order), `result`, `replay` (path relative to this file) |
 | `leaderboard` | Per bot, best first: `rank` (shared on ties), `games`, `match_points`, `wins`, `draws`, `losses`, `cleared`, `turns_to_clear`, `half_points`, `failures` (turns with any outcome but `ok`), `latency_us` |

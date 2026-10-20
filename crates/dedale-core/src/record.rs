@@ -10,7 +10,7 @@ use crate::code::MazeCode;
 use crate::game::{GameResult, Outcome, PlayerState, Seating, Snapshot};
 use crate::grid::{Cell, Move, Pos};
 use crate::maze::Maze;
-use crate::protocol::{BotError, Mark};
+use crate::protocol::{About, BotError, Mark};
 use crate::stats::PlayerStats;
 
 /// Version of the replay format.
@@ -124,8 +124,12 @@ pub struct ConfigRecord {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlayerRecord {
+    /// What the player is called: its declared name, else its file name.
     pub name: String,
     pub path: String,
+    /// What the bot says about itself (absent from older replays).
+    #[serde(default)]
+    pub about: About,
     pub start: Pos,
     pub startup: StartupRecord,
     pub exit: Option<ExitRecord>,

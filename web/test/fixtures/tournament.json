@@ -17,11 +17,21 @@
   "bots": [
     {
       "name": "lap",
-      "path": "fake:lap"
+      "path": "fake:lap",
+      "about": {
+        "name": "lap",
+        "author": "Ada",
+        "description": "Laps the maze, clockwise."
+      }
     },
     {
       "name": "flaky",
-      "path": "fake:flaky"
+      "path": "fake:flaky",
+      "about": {
+        "name": null,
+        "author": null,
+        "description": null
+      }
     }
   ],
   "games": [

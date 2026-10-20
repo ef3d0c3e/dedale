@@ -18,6 +18,13 @@ from collections import deque
 import dedale
 from dedale import Move
 
+NAME = "Tour"
+AUTHOR = "Dedale examples"
+DESCRIPTION = (
+    "Plans its whole route at startup (nearest point first, then 2-opt on "
+    "maze distances) and follows it."
+)
+
 # Moves available from every open cell, filled by init().
 neighbors: dict[tuple[int, int], list[tuple[Move, tuple[int, int]]]] = {}
 # Every point, in the order the bot visits them (empty: play greedy).

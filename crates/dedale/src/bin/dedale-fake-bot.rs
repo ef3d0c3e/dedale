@@ -4,6 +4,7 @@
 //! ```text
 //! dedale-fake-bot [--moves up,left,...]     moves by turn, cycling (default: stay)
 //!                 [--no-hello] [--protocol N]
+//!                 [--name TEXT] [--author TEXT] [--description TEXT]
 //!                 [--init-sleep-ms MS] [--init-error]
 //!                 [--sleep-at TURN:MS]...  [--silent-at TURN]...
 //!                 [--crash-at TURN]        exits with status 3
@@ -22,8 +23,8 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use dedale_core::protocol::{
-    BotError, ErrorReply, FromBot, Hello, MAX_LINE, MoveReply, PROTOCOL_VERSION, Phase, Ready,
-    ToBot, decode_dedale_line, encode_line,
+    About, BotError, ErrorReply, FromBot, Hello, MAX_LINE, MoveReply, PROTOCOL_VERSION, Phase,
+    Ready, ToBot, decode_dedale_line, encode_line,
 };
 
 #[derive(Debug)]
@@ -31,6 +32,7 @@ struct Script {
     moves: Vec<String>,
     hello: bool,
     protocol: u32,
+    about: About,
     init_sleep: Duration,
     init_error: bool,
     sleep_at: HashMap<u32, Duration>,
@@ -52,6 +54,7 @@ impl Script {
             moves: Vec::new(),
             hello: true,
             protocol: PROTOCOL_VERSION,
+            about: About::default(),
             init_sleep: Duration::ZERO,
             init_error: false,
             sleep_at: HashMap::new(),
@@ -72,6 +75,9 @@ impl Script {
                 "--moves" => script.moves = value()?.split(',').map(str::to_owned).collect(),
                 "--no-hello" => script.hello = false,
                 "--protocol" => script.protocol = number(&value()?)?,
+                "--name" => script.about.name = Some(value()?),
+                "--author" => script.about.author = Some(value()?),
+                "--description" => script.about.description = Some(value()?),
                 "--init-sleep-ms" => script.init_sleep = millis(&value()?)?,
                 "--init-error" => script.init_error = true,
                 "--sleep-at" => {
@@ -126,8 +132,11 @@ fn run(script: &Script) -> io::Result<ExitCode> {
         io::stderr().write_all(&vec![b'e'; script.stderr_bytes])?;
     }
     if script.hello {
-        let protocol = script.protocol;
-        send(&mut out, &FromBot::Hello(Hello { protocol }))?;
+        let hello = Hello {
+            protocol: script.protocol,
+            about: script.about.clone(),
+        };
+        send(&mut out, &FromBot::Hello(hello))?;
     }
     for line in io::stdin().lock().lines() {
         let line = line?;

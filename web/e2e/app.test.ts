@@ -32,6 +32,7 @@ function results(): string {
   put(join(root, "cup/games/002/replay.json"), golden);
   const hostile = JSON.parse(golden);
   hostile.turns[0].players[0].log = [HOSTILE];
+  hostile.players[0].about.description = HOSTILE;
   hostile.turns[0].players[0].marks = [
     {
       cells: [
@@ -94,6 +95,9 @@ test("browsing results: runs, a game, a tournament", async () => {
     assert.notDeepEqual(await pixel(60, 20), floor, "(1, 0) holds a point");
     const head = "document.querySelector('.game-head').textContent";
     assert.match(await page.eval<string>(head), /turn 0 \/ 12/);
+    // What the bots say about themselves: only lap says more than its name.
+    assert.equal(await page.eval<number>("document.querySelectorAll('ul.about li').length"), 2);
+    assert.match(await page.text("ul.about"), /A lap by Ada\s*Laps the maze, clockwise\./);
     await page.press("ArrowRight", "ArrowRight", 39);
     await page.waitFor(`${head}.includes("turn 1 / 12")`);
     assert.match(await page.eval<string>("location.hash"), /\?turn=1$/);
@@ -111,6 +115,7 @@ test("browsing results: runs, a game, a tournament", async () => {
     await page.waitFor(
       `document.querySelector(".panel.player-0 pre.log")?.textContent === ${JSON.stringify(HOSTILE)}`,
     );
+    assert.equal(await page.text("ul.about .description"), HOSTILE);
     assert.equal(await page.eval<number>("document.querySelectorAll('main img').length"), 0);
     assert.notEqual(await page.eval<string>("document.title"), "pwned");
 
@@ -127,6 +132,7 @@ test("browsing results: runs, a game, a tournament", async () => {
     // A tournament, one of its games, and back.
     await page.goto(`${dedale.url}#/tournament/cup/tournament.json`);
     await page.waitFor("document.querySelectorAll('main table').length === 2");
+    assert.match(await page.text("ul.about"), /lap by Ada/);
     assert.equal(
       await page.eval<number>("document.querySelectorAll('main table')[0].tBodies[0].rows.length"),
       2,

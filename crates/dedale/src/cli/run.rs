@@ -8,11 +8,12 @@ use std::time::{Duration, Instant};
 
 use clap::{Args, ValueEnum};
 use dedale_core::game::{Game, Seating, Snapshot};
+use dedale_core::protocol::About;
 use dedale_core::record::TurnRecord;
 
 use super::serve::LiveArgs;
 use super::{CliResult, ColorChoice, MazeArgs, summary, timestamp};
-use crate::bot::BotSpec;
+use crate::bot::{BotSpec, abouts};
 use crate::python::PythonRuntime;
 use crate::referee::{Entrant, GameStart, MatchConfig, Observer, run_match};
 use crate::render::{Frame, Style, render};
@@ -141,19 +142,23 @@ pub(crate) fn run(args: &RunArgs) -> CliResult {
     let runtime = PythonRuntime::extract()?;
     let launcher = runtime.launcher(args.python.clone());
     let specs: Vec<BotSpec> = args.bots.iter().map(BotSpec::from_path).collect();
-    let names = unique_names(&specs);
+    let config = args.timing.config(seating);
+    let abouts = abouts(&specs, &launcher, config.hello_timeout);
+    let names = player_names(&specs, &abouts);
+    let files = file_names(&specs);
     let entrants: Vec<Entrant> = specs
         .iter()
-        .zip(&names)
-        .map(|(spec, name)| Entrant {
-            name: name.clone(),
+        .zip(abouts)
+        .enumerate()
+        .map(|(i, (spec, about))| Entrant {
+            name: names[i].clone(),
             path: spec.path().display().to_string(),
+            about,
             command: spec.command(&launcher),
-            stderr_log: Some(out.join(format!("{name}.stderr.log"))),
+            stderr_log: Some(out.join(format!("{}.stderr.log", files[i]))),
         })
         .collect();
 
-    let config = args.timing.config(seating);
     let style = args.display.style();
     let live = args.live.start(
         || Plan {
@@ -282,11 +287,26 @@ impl Watcher {
     }
 }
 
-/// Bot names from file names, made unique with a suffix.
-pub(crate) fn unique_names(specs: &[BotSpec]) -> Vec<String> {
+/// What the players are called: what each bot calls itself, else its file
+/// name; made unique.
+pub(crate) fn player_names(specs: &[BotSpec], abouts: &[About]) -> Vec<String> {
+    let declared = specs
+        .iter()
+        .zip(abouts)
+        .map(|(spec, about)| about.name.clone().unwrap_or_else(|| spec.name()));
+    unique_names(declared)
+}
+
+/// The bots' file names, made unique: for their files, which never take
+/// what a bot calls itself.
+pub(crate) fn file_names(specs: &[BotSpec]) -> Vec<String> {
+    unique_names(specs.iter().map(BotSpec::name))
+}
+
+/// Names made unique with a suffix: `greedy`, `greedy-2`.
+fn unique_names(bases: impl IntoIterator<Item = String>) -> Vec<String> {
     let mut names: Vec<String> = Vec::new();
-    for spec in specs {
-        let base = spec.name();
+    for base in bases {
         let mut name = base.clone();
         let mut n = 2;
         while names.contains(&name) {
@@ -300,15 +320,30 @@ pub(crate) fn unique_names(specs: &[BotSpec]) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::unique_names;
+    use super::{file_names, player_names};
     use crate::bot::BotSpec;
+    use dedale_core::protocol::About;
 
     #[test]
     fn names_are_unique() {
-        let specs: Vec<_> = ["a/greedy.py", "b/greedy.py", "random.py"]
+        let specs: Vec<_> = ["a/greedy.py", "b/greedy.py", "random.py", "c/bot.py"]
             .into_iter()
             .map(BotSpec::from_path)
             .collect();
-        assert_eq!(unique_names(&specs), ["greedy", "greedy-2", "random"]);
+        assert_eq!(file_names(&specs), ["greedy", "greedy-2", "random", "bot"]);
+        let named = |name: &str| About {
+            name: Some(name.to_owned()),
+            ..About::default()
+        };
+        let abouts = [
+            About::default(),
+            named("random"),
+            named("Ada's"),
+            named("Ada's"),
+        ];
+        assert_eq!(
+            player_names(&specs, &abouts),
+            ["greedy", "random", "Ada's", "Ada's-2"]
+        );
     }
 }

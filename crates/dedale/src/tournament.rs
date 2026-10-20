@@ -14,6 +14,7 @@ use dedale_core::code::{MazeCode, MazeParams};
 use dedale_core::game::{EndReason, GameResult, Seating};
 use dedale_core::generator::generate_normalized;
 use dedale_core::maze::Maze;
+use dedale_core::protocol::About;
 use dedale_core::record::GameRecord;
 use dedale_core::rng::Rng;
 use dedale_core::stats::Summary;
@@ -215,6 +216,9 @@ pub enum MazeSource {
 pub struct BotInfo {
     pub name: String,
     pub path: String,
+    /// Absent from older reports.
+    #[serde(default)]
+    pub about: About,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -259,14 +263,15 @@ pub enum TournamentError {
     },
 }
 
-/// The directory of one game, relative to the tournament's.
+/// The directory of one game, relative to the tournament's. `files` are
+/// the bots' file names, never what they call themselves.
 #[must_use]
-pub fn game_dir(plan: &GamePlan, names: &[String]) -> PathBuf {
+pub fn game_dir(plan: &GamePlan, files: &[String]) -> PathBuf {
     let maze = plan
         .code
         .map_or_else(|| "map".to_owned(), |c| c.to_string());
     let who = match plan.seating {
-        Seating::Solo => names[plan.bots[0]].clone(),
+        Seating::Solo => files[plan.bots[0]].clone(),
         Seating::Duo => "duo".to_owned(),
         Seating::DuoSwapped => "duo-swapped".to_owned(),
     };
@@ -283,8 +288,9 @@ pub trait TournamentObserver: Observer {
 impl TournamentObserver for () {}
 
 /// Plays `plans` in order under `out`, writing each game's replay as soon
-/// as it ends. `entrant(bot, dir)` starts a bot with its logs in `dir`;
-/// `observer` watches every game.
+/// as it ends, in the directory [`game_dir`] makes of `files`.
+/// `entrant(bot, dir)` starts a bot with its logs in `dir`; `observer`
+/// watches every game.
 ///
 /// # Errors
 ///
@@ -292,7 +298,7 @@ impl TournamentObserver for () {}
 /// cannot be written.
 pub fn play(
     plans: &[GamePlan],
-    names: &[String],
+    files: &[String],
     maze: impl Fn(&GamePlan) -> Maze,
     mut entrant: impl FnMut(usize, &Path) -> Entrant,
     config: &MatchConfig,
@@ -301,7 +307,7 @@ pub fn play(
 ) -> Result<Vec<(GamePlan, GameRecord)>, TournamentError> {
     let mut games = Vec::new();
     for plan in plans {
-        let dir = out.join(game_dir(plan, names));
+        let dir = out.join(game_dir(plan, files));
         let write_error = |source, path: &Path| TournamentError::Write {
             path: path.display().to_string(),
             source,

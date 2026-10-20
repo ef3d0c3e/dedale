@@ -3,8 +3,8 @@
 #![no_main]
 
 use dedale_core::protocol::{
-    FromBot, MAX_LABEL, MAX_LOG_BYTES, MAX_MARK_CELLS, MAX_MARKS, Mark, decode_bot_line,
-    encode_line,
+    About, FromBot, MAX_DESCRIPTION, MAX_LABEL, MAX_LOG_BYTES, MAX_MARK_CELLS, MAX_MARKS, MAX_NAME,
+    Mark, decode_bot_line, encode_line,
 };
 use libfuzzer_sys::fuzz_target;
 
@@ -17,12 +17,31 @@ fn check_caps(log: &[String], marks: &[Mark]) {
     }
 }
 
+fn check_about(about: &About) {
+    for (text, max) in [
+        (&about.name, MAX_NAME),
+        (&about.author, MAX_NAME),
+        (&about.description, MAX_DESCRIPTION),
+    ] {
+        if let Some(text) = text {
+            assert!(!text.is_empty() && text.len() <= max);
+            assert_eq!(text.trim(), text);
+            assert!(
+                !text
+                    .chars()
+                    .any(|c| c.is_control() || (c.is_whitespace() && c != ' '))
+            );
+            assert!(!text.contains("  "));
+        }
+    }
+}
+
 fuzz_target!(|data: &[u8]| {
     let Ok(msg) = decode_bot_line(data) else {
         return;
     };
     match &msg {
-        FromBot::Hello(_) => {}
+        FromBot::Hello(hello) => check_about(&hello.about),
         FromBot::Ready(ready) => check_caps(&ready.log, &ready.marks),
         FromBot::Error(reply) => check_caps(&reply.log, &[]),
         FromBot::Move(reply) => {

@@ -15,6 +15,7 @@ use dedale::web::browse::{Browse, Entry, scan};
 use dedale::web::http::{Body, Method, Request, Response};
 use dedale::web::server::Handler;
 use dedale_core::game::Seating;
+use dedale_core::protocol::About;
 use dedale_core::record::GameRecord;
 use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
@@ -60,10 +61,12 @@ fn report() -> TournamentReport {
             BotInfo {
                 name: "lap".to_owned(),
                 path: "lap".to_owned(),
+                about: About::default(),
             },
             BotInfo {
                 name: "sitter".to_owned(),
                 path: "sitter".to_owned(),
+                about: About::default(),
             },
         ],
         games: vec![

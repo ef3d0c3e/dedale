@@ -19,8 +19,8 @@ use dedale_core::game::{
 use dedale_core::grid::Pos;
 use dedale_core::maze::Maze;
 use dedale_core::protocol::{
-    BotError, DecodeError, End, ErrorReply, FromBot, Init, InitPlayer, MAX_LINE, Mark, MoveReply,
-    PROTOCOL_VERSION, Ready, ToBot, Turn, decode_bot_line,
+    About, BotError, DecodeError, End, ErrorReply, FromBot, Init, InitPlayer, MAX_LINE, Mark,
+    MoveReply, PROTOCOL_VERSION, Ready, ToBot, Turn, decode_bot_line,
 };
 use dedale_core::record::{
     ConfigRecord, EventKind, EventRecord, ExitRecord, GameRecord, PlayerRecord, PlayerTurnRecord,
@@ -74,9 +74,13 @@ impl MatchConfig {
 /// A competitor ready to be started.
 #[derive(Debug)]
 pub struct Entrant {
+    /// What the player is called.
     pub name: String,
     /// The bot's path, as the user gave it (for the record).
     pub path: String,
+    /// What the bot says about itself, read before the game
+    /// ([`crate::bot::BotSpec::about`]).
+    pub about: About,
     pub command: Command,
     pub stderr_log: Option<PathBuf>,
 }
@@ -112,6 +116,7 @@ pub struct GameStart {
 pub struct PlayerStart {
     pub name: String,
     pub path: String,
+    pub about: About,
     pub start: Pos,
 }
 
@@ -264,6 +269,7 @@ impl GameStart {
             .map(|(entrant, start)| PlayerStart {
                 name: entrant.name.clone(),
                 path: entrant.path.clone(),
+                about: entrant.about.clone(),
                 start,
             })
             .collect();
@@ -290,6 +296,7 @@ struct Referee<'o> {
 struct Seat {
     name: String,
     path: String,
+    about: About,
     /// `None` once the bot is gone (crashed or failed to start) and reaped.
     process: Option<BotProcess>,
     exit: Option<ExitReport>,
@@ -366,6 +373,7 @@ impl Seat {
         Ok(Self {
             name: entrant.name,
             path: entrant.path,
+            about: entrant.about,
             process: Some(process),
             exit: None,
             ready: false,
@@ -457,6 +465,7 @@ impl Seat {
         PlayerRecord {
             name: self.name,
             path: self.path,
+            about: self.about,
             start,
             startup: self.startup,
             exit: self.exit.map(|exit| ExitRecord {

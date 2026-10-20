@@ -93,7 +93,7 @@ data: {"game":1,"turn":{"turn":7,"players":[…],"collected":[[3,0]]}}
 |---|---|
 | `snapshot` | Always first: `session` (as `/api/session`), `pace`, `games` (each: `game`, `start`, `startups`, `turns`, `end`), `standings` |
 | `waiting` | `{}`, after the snapshot while nobody has pressed Start |
-| `game_start` | `game` (from 1), `code`, `maze`, `config`, `players` (`name`, `path`, `start`) |
+| `game_start` | `game` (from 1), `code`, `maze`, `config`, `players` (`name`, `path`, `about`, `start`) |
 | `startup` | `game`, `player`, `startup` (its startup record) |
 | `turn` | `game`, `turn` (its turn record) |
 | `game_end` | `game`, `format`, `dedale`, `players` (full player records), `events`, `result`, `stats`, `replay` (its path, for `/api/file`) |

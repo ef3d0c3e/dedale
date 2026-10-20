@@ -10,7 +10,7 @@ runs any bot path that does not end in `.py` as an executable.
   JSON object per line.
 - Lines from the bot may be at most 64 KiB; a longer one is discarded and
   counts as invalid.
-- **stderr** is free for the bot: it goes to `<name>.stderr.log`.
+- **stderr** is free for the bot: it goes to `<file name>.stderr.log`.
 - The bot runs in its own process group, which Dedale kills at the end of the
   game.
 - Every message has a `"type"`. Unknown fields are ignored.
@@ -73,7 +73,7 @@ when it was rejected).
 ## Messages from the bot
 
 ```json
-{"type": "hello", "protocol": 1}
+{"type": "hello", "protocol": 1, "name": "Scorer", "author": "Ada", "description": "Scores every point."}
 {"type": "ready", "init_us": 39870, "log": [], "marks": []}
 {"type": "error", "phase": "init", "message": "ValueError: ...", "traceback": "...", "log": []}
 {"type": "move", "turn": 1, "move": "up", "think_us": 812,
@@ -95,6 +95,23 @@ when it was rejected).
   other value reads as `null`. `kind` is `cells` (the default: highlighted
   cells) or `path` (a line through the cells in order); any other value reads
   as `cells`. Viewers choose the shades.
+
+## About the bot
+
+`hello` may say who the bot is, for leaderboards and viewers: `name`,
+`author` and `description`, all optional strings (any other value reads as
+`null`). Python bots set them with the `NAME`, `AUTHOR` and `DESCRIPTION`
+globals.
+
+- `dedale run` and `dedale tournament` read them once, before the first
+  game: they start each bot, read its `hello` and stop it. The `hello` of
+  each game is not read again.
+- They are text for people, from strangers: Dedale removes control and
+  bidirectional formatting characters, turns every run of whitespace into
+  one space, trims, keeps 64 bytes of `name` and `author` and 1 KiB of
+  `description`, and reads an empty text as `null`.
+- The player is called by its `name`, else by its file name. Files and
+  directories always take the file name.
 
 ## Outcomes
 

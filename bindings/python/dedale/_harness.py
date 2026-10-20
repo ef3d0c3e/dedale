@@ -9,6 +9,7 @@ descriptor) ends up in its log or on stderr, never in the protocol.
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import io
 import json
@@ -34,6 +35,8 @@ TRUNCATED = "[truncated]"
 # Characters kept by the capture buffer: a bound on memory, above the byte
 # cap applied when the call ends.
 SINK_LIMIT = 2 * MAX_LOG_BYTES
+# The globals a bot sets to say who it is, and their fields in `hello`.
+ABOUT = {"NAME": "name", "AUTHOR": "author", "DESCRIPTION": "description"}
 
 
 class Sink(io.TextIOBase):
@@ -158,7 +161,7 @@ class Harness:
         self.out.flush()
 
     def run(self) -> None:
-        self.send({"type": "hello", "protocol": PROTOCOL})
+        self.send({"type": "hello", "protocol": PROTOCOL, **read_about(self.bot_path)})
         init = self.next_message()
         if init is None or init.get("type") != "init":
             return
@@ -249,6 +252,34 @@ def normalize(result: object) -> tuple[str | None, str | None]:
         return result.lower(), None
     expected = "expected a Move or a move name"
     return None, f"[dedale] move() returned {result!r}; {expected}"
+
+
+def read_about(path: str) -> dict[str, str]:
+    """The bot's NAME, AUTHOR and DESCRIPTION as `hello` fields, read from its
+    source without running it: top-level assignments of a string literal.
+    Other values are left out, with a note on stderr."""
+    try:
+        tree = ast.parse(Path(path).read_bytes(), filename=path)
+    except Exception:  # unreadable or invalid: importing the bot reports it
+        return {}
+    about: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            targets, value = [node.target], node.value
+        else:
+            continue
+        for target in targets:
+            if not isinstance(target, ast.Name) or target.id not in ABOUT:
+                continue
+            # The last assignment wins, as it would when the bot runs.
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                about[ABOUT[target.id]] = value.value
+            else:
+                about.pop(ABOUT[target.id], None)
+                print(f"[dedale] {target.id} is not a string literal; ignored", file=sys.stderr)
+    return about
 
 
 def load(path: str):

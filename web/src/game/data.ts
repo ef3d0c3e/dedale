@@ -8,8 +8,8 @@ import type {
   GameResult,
   LiveGame,
   PlayerRecord,
+  PlayerStart,
   PlayerStats,
-  Pos,
   StartupRecord,
 } from "../types.ts";
 
@@ -22,7 +22,7 @@ export interface GameEndData {
 export interface GameData {
   code: string | null;
   config: ConfigRecord;
-  players: { name: string; path: string; start: Pos }[];
+  players: PlayerStart[];
   model: GameModel;
   /** The latest startup report per player. */
   startups: (StartupRecord | null)[];
@@ -35,7 +35,7 @@ export function fromRecord(record: GameRecord): GameData {
   return {
     code: record.code,
     config: record.config,
-    players: record.players.map(({ name, path, start }) => ({ name, path, start })),
+    players: record.players.map(({ name, path, about, start }) => ({ name, path, about, start })),
     model: GameModel.fromRecord(record),
     startups: record.players.map((p) => p.startup),
     events: record.events,

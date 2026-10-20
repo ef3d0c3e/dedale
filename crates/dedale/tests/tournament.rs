@@ -15,6 +15,7 @@ use dedale::tournament::{
 };
 use dedale_core::game::Seating;
 use dedale_core::maze::Maze;
+use dedale_core::protocol::About;
 use dedale_core::record::GameRecord;
 use dedale_core::verify::verify;
 
@@ -35,6 +36,7 @@ fn fake_entrant(bot: usize, dir: &Path) -> Entrant {
     Entrant {
         name: name.to_owned(),
         path: format!("fake:{name}"),
+        about: About::default(),
         command: fake_bot(&args),
         stderr_log: Some(dir.join(format!("{name}.stderr.log"))),
     }
@@ -173,7 +175,9 @@ fn the_duo_command() {
     assert_eq!(stdout.matches("\ngame ").count(), 4, "{stdout}");
     assert_eq!(report.mode, Mode::Duo);
     assert_eq!(report.games.len(), 4);
-    assert_eq!(report.leaderboard[0].name, "greedy_bot");
+    assert_eq!(report.leaderboard[0].name, "Greedy");
+    let about = &report.bots[0].about;
+    assert_eq!(about.author.as_deref(), Some("Dedale examples"));
     for game in &report.games {
         let record = replay::read(&dir.path().join("a").join(&game.replay)).unwrap();
         assert_eq!(verify(&record), Ok(()));
@@ -197,7 +201,9 @@ fn the_solo_command() {
     assert_eq!(report.mode, Mode::Solo);
     assert_eq!(report.games.len(), 4);
     let first = &report.leaderboard[0];
-    assert_eq!((first.name.as_str(), first.cleared), ("greedy_bot", 2));
+    assert_eq!((first.name.as_str(), first.cleared), ("Greedy", 2));
+    // Game directories take file names, never what bots call themselves.
+    assert!(report.games[0].replay.contains("-greedy_bot/"));
 }
 
 #[test]

@@ -21,6 +21,13 @@ from collections import deque
 import dedale
 from dedale import Move
 
+NAME = "Rollout"
+AUTHOR = "Dedale examples"
+DESCRIPTION = (
+    "Tries every move, plays the game out with both players greedy, and "
+    "keeps the move with the best ending."
+)
+
 # In a duo, the turns a playout looks ahead: enough to see races through,
 # short enough to finish in time on large mazes. Solo playouts go to the
 # end: the turns needed to clear the maze are what counts.

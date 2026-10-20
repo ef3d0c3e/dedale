@@ -17,6 +17,11 @@
     {
       "name": "lap",
       "path": "fake:lap",
+      "about": {
+        "name": "lap",
+        "author": "Ada",
+        "description": "Laps the maze, clockwise."
+      },
       "start": [
         0,
         0
@@ -39,6 +44,11 @@
     {
       "name": "flaky",
       "path": "fake:flaky",
+      "about": {
+        "name": null,
+        "author": null,
+        "description": null
+      },
       "start": [
         4,
         4

@@ -6,6 +6,7 @@ use crate::code::{MazeCode, MazeParams};
 use crate::game::{Failure, Game, Input, Seating};
 use crate::generator::generate;
 use crate::grid::Move;
+use crate::protocol::About;
 use crate::record::{
     ConfigRecord, GameRecord, PlayerRecord, PlayerTurnRecord, REPLAY_FORMAT, StartupOutcome,
     StartupRecord, TurnRecord,
@@ -60,6 +61,7 @@ pub(crate) fn simulate(
         .map(|(i, start)| PlayerRecord {
             name: format!("bot{i}"),
             path: format!("bot{i}.py"),
+            about: About::default(),
             start,
             startup: StartupRecord {
                 outcome: StartupOutcome::Ok,

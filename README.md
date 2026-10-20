@@ -65,6 +65,10 @@ from collections import deque
 import dedale
 from dedale import Move
 
+NAME = "Greedy"
+AUTHOR = "Dedale examples"
+DESCRIPTION = "Walks to the nearest point, breadth-first."
+
 # Moves available from every open cell, filled by init().
 neighbors: dict[tuple[int, int], list[tuple[Move, tuple[int, int]]]] = {}
 
@@ -103,6 +107,12 @@ def path_to(cell, parent):
         cell = parent[cell]
     return path[::-1]
 ```
+
+`NAME`, `AUTHOR` and `DESCRIPTION` say who the bot is. They are optional,
+and must be plain strings: Dedale reads them from the file without running
+it. The player is then called by its `NAME` rather than its file name, its
+author shows in the terminal's tables, and both author and description in
+the replay files and the browser app.
 
 What the `dedale` module offers (full reference in
 [`bindings/python/README.md`](bindings/python/README.md)):
@@ -325,7 +335,7 @@ every turn (requested and applied moves, outcomes, positions, points,
 latency measured by Dedale, time spent inside `move()`, logs, marks, errors),
 events such as late answers, the result, and per-bot statistics (latency
 min/mean/p50/p95/p99/max, outcome counts, steps, startup time). Bots' stderr
-goes to `<name>.stderr.log` next to it. The format is described in
+goes to `<file name>.stderr.log` next to it. The format is described in
 [`docs/replay.md`](docs/replay.md).
 
 ## Other languages

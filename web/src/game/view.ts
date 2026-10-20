@@ -2,6 +2,7 @@
 // markers, keyboard) and the stats table. Works for recorded games and,
 // through `update`, for games being played.
 
+import { aboutList } from "../about.ts";
 import { h, replace } from "../dom.ts";
 import { describeResult, formatUs, letter, outcomeName, score } from "../format.ts";
 import type { Outcome } from "../types.ts";
@@ -137,6 +138,7 @@ export class GameView {
       "section",
       { class: "game" },
       this.head,
+      aboutList(data.players, true),
       h("div", { class: "game-body" }, this.boardColumn, this.side),
       h("div", { class: "timeline" }, controls, this.range, this.strip),
       this.stats,

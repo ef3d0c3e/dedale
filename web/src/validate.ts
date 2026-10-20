@@ -3,6 +3,7 @@
 // Unknown fields are ignored, as Dedale's own readers do.
 
 import type {
+  About,
   BotError,
   ConfigRecord,
   EventRecord,
@@ -167,9 +168,17 @@ const exitRecord = obj<ExitRecord>({
   stderr_tail: str,
 });
 
+/** Older files say nothing about their bots. */
+const about: Check<About> = (value, path) =>
+  obj<About>({ name: nullable(str), author: nullable(str), description: nullable(str) })(
+    value ?? {},
+    path,
+  );
+
 const playerRecord = obj<PlayerRecord>({
   name: str,
   path: str,
+  about,
   start: pos,
   startup: startupRecord,
   exit: nullable(exitRecord),
@@ -359,7 +368,7 @@ export function parseTournament(value: unknown): TournamentReport {
     startup_ms: int,
     move_ms: int,
     max_turns: nullable(int),
-    bots: arr(obj({ name: str, path: str })),
+    bots: arr(obj({ name: str, path: str, about })),
     games: arr(gameEntry),
     leaderboard: arr(standing),
   })(value, "");
@@ -426,7 +435,7 @@ export const gameStart = obj<GameStart>({
   code: nullable(str),
   maze,
   config,
-  players: arr(obj({ name: str, path: str, start: pos })),
+  players: arr(obj({ name: str, path: str, about, start: pos })),
 });
 
 const gameEndFields = {

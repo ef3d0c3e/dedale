@@ -109,9 +109,12 @@ const exitRecord = obj({
     killed: bool,
     stderr_tail: str,
 });
+/** Older files say nothing about their bots. */
+const about = (value, path) => obj({ name: nullable(str), author: nullable(str), description: nullable(str) })(value ?? {}, path);
 const playerRecord = obj({
     name: str,
     path: str,
+    about,
     start: pos,
     startup: startupRecord,
     exit: nullable(exitRecord),
@@ -283,7 +286,7 @@ export function parseTournament(value) {
         startup_ms: int,
         move_ms: int,
         max_turns: nullable(int),
-        bots: arr(obj({ name: str, path: str })),
+        bots: arr(obj({ name: str, path: str, about })),
         games: arr(gameEntry),
         leaderboard: arr(standing),
     })(value, "");
@@ -343,7 +346,7 @@ export const gameStart = obj({
     code: nullable(str),
     maze,
     config,
-    players: arr(obj({ name: str, path: str, start: pos })),
+    players: arr(obj({ name: str, path: str, about, start: pos })),
 });
 const gameEndFields = {
     format: int,

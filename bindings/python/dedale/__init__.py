@@ -14,6 +14,9 @@ updates it in place before every call to ``move()``::
         x, y = dedale.me.pos
         return Move.UP  # or "up"
 
+The optional globals ``NAME``, ``AUTHOR`` and ``DESCRIPTION`` (plain string
+literals) say who the bot is; Dedale reads them without running the bot.
+
 Coordinates are ``(x, y)``: origin top-left, ``x`` to the right, ``y`` down.
 Anything printed during ``init()`` or ``move()`` is captured and stored in the
 replay, as are cells highlighted with :func:`mark` and routes drawn with

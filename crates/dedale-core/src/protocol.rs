@@ -24,6 +24,9 @@ pub const MAX_MARK_CELLS: usize = 4096;
 /// Longest mark label, and longest error message or traceback, in bytes.
 pub const MAX_LABEL: usize = 64;
 pub const MAX_ERROR_TEXT: usize = 4096;
+/// Longest name or author a bot can give, and longest description, in bytes.
+pub const MAX_NAME: usize = 64;
+pub const MAX_DESCRIPTION: usize = 1024;
 /// Log entry appended when something was cut.
 pub const TRUNCATED: &str = "[truncated]";
 
@@ -85,9 +88,40 @@ pub enum FromBot {
 }
 
 /// Sent once the harness runs, before the bot module is imported.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Hello {
     pub protocol: u32,
+    #[serde(flatten)]
+    pub about: About,
+}
+
+/// What a bot says about itself, for people: never an identifier or a path.
+/// Any value but a string reads as `None`; [`decode_bot_line`] cleans the
+/// rest with [`About::clean`].
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct About {
+    #[serde(default, deserialize_with = "lenient")]
+    pub name: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub author: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub description: Option<String>,
+}
+
+impl About {
+    /// Makes each text one line of plain text: control and bidirectional
+    /// formatting characters removed, whitespace runs made single spaces,
+    /// trimmed, and capped at [`MAX_NAME`] or [`MAX_DESCRIPTION`] bytes. An
+    /// empty text becomes `None`. Cleaning twice changes nothing.
+    pub fn clean(&mut self) {
+        for (text, max) in [
+            (&mut self.name, MAX_NAME),
+            (&mut self.author, MAX_NAME),
+            (&mut self.description, MAX_DESCRIPTION),
+        ] {
+            *text = text.as_deref().and_then(|t| clean_text(t, max));
+        }
+    }
 }
 
 /// Startup finished: the bot module is imported and `init()` returned.
@@ -268,7 +302,7 @@ pub fn decode_bot_line(line: &[u8]) -> Result<FromBot, DecodeError> {
                 found: hello.protocol,
             });
         }
-        FromBot::Hello(_) => {}
+        FromBot::Hello(hello) => hello.about.clean(),
         FromBot::Ready(ready) => {
             cap_marks(&mut ready.marks, &mut ready.log);
             cap_log(&mut ready.log);
@@ -356,6 +390,39 @@ fn cap_error(error: &mut BotError) {
     }
 }
 
+fn clean_text(text: &str, max: usize) -> Option<String> {
+    let words = text
+        .split(|c: char| c.is_whitespace() || c.is_control())
+        .map(|word| {
+            word.chars()
+                .filter(|&c| !is_bidi_control(c))
+                .collect::<String>()
+        })
+        .filter(|word| !word.is_empty());
+    let mut clean = String::new();
+    for word in words {
+        if clean.len() > max {
+            break;
+        }
+        if !clean.is_empty() {
+            clean.push(' ');
+        }
+        clean.push_str(&word);
+    }
+    truncate_at_char(&mut clean, max);
+    clean.truncate(clean.trim_end().len());
+    (!clean.is_empty()).then_some(clean)
+}
+
+/// Characters that reorder the text around them, so a name could read as
+/// another.
+fn is_bidi_control(c: char) -> bool {
+    matches!(
+        c,
+        '\u{061C}' | '\u{200E}' | '\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}'
+    )
+}
+
 /// Cuts `text` to at most `max` bytes on a character boundary; true if it cut.
 fn truncate_at_char(text: &mut String, max: usize) -> bool {
     if text.len() <= max {
@@ -372,9 +439,10 @@ fn truncate_at_char(text: &mut String, max: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        BotError, DecodeError, End, ErrorReply, FromBot, Hello, Init, InitPlayer, MAX_LABEL,
-        MAX_LINE, MAX_LOG_BYTES, MAX_MARK_CELLS, MAX_MARKS, Mark, MarkColor, MarkKind, MoveReply,
-        Phase, Ready, TRUNCATED, ToBot, Turn, decode_bot_line, decode_dedale_line, encode_line,
+        About, BotError, DecodeError, End, ErrorReply, FromBot, Hello, Init, InitPlayer,
+        MAX_DESCRIPTION, MAX_LABEL, MAX_LINE, MAX_LOG_BYTES, MAX_MARK_CELLS, MAX_MARKS, MAX_NAME,
+        Mark, MarkColor, MarkKind, MoveReply, Phase, Ready, TRUNCATED, ToBot, Turn,
+        decode_bot_line, decode_dedale_line, encode_line, is_bidi_control,
     };
     use crate::game::{EndReason, PlayerState};
     use crate::grid::{Move, Pos};
@@ -443,8 +511,22 @@ mod tests {
     fn golden_bot_messages() {
         let cases = [
             (
-                FromBot::Hello(Hello { protocol: 1 }),
-                r#"{"type":"hello","protocol":1}"#,
+                FromBot::Hello(Hello {
+                    protocol: 1,
+                    about: About::default(),
+                }),
+                r#"{"type":"hello","protocol":1,"name":null,"author":null,"description":null}"#,
+            ),
+            (
+                FromBot::Hello(Hello {
+                    protocol: 1,
+                    about: About {
+                        name: Some("Scorer".to_owned()),
+                        author: Some("Ada".to_owned()),
+                        description: Some("Scores points.".to_owned()),
+                    },
+                }),
+                r#"{"type":"hello","protocol":1,"name":"Scorer","author":"Ada","description":"Scores points."}"#,
             ),
             (
                 FromBot::Ready(Ready {
@@ -519,6 +601,33 @@ mod tests {
             panic!();
         };
         assert_eq!(reply.requested(), Ok(None));
+    }
+
+    #[test]
+    fn hellos_are_cleaned() {
+        let hello = |json: &str| match decode_bot_line(json.as_bytes()) {
+            Ok(FromBot::Hello(hello)) => hello.about,
+            other => panic!("{other:?}"),
+        };
+        assert_eq!(hello(r#"{"type":"hello","protocol":1}"#), About::default());
+        let about = hello(
+            r#"{"type":"hello","protocol":1,"name":"  Scorer\n\t v2 ","author":"\u202eAda\u001b[31m","description":42}"#,
+        );
+        assert_eq!(about.name.as_deref(), Some("Scorer v2"));
+        assert_eq!(about.author.as_deref(), Some("Ada [31m"));
+        assert_eq!(about.description, None);
+        let about = hello(r#"{"type":"hello","protocol":1,"name":" \u200e ","author":["Ada"]}"#);
+        assert_eq!(about, About::default());
+
+        let long = format!(
+            r#"{{"type":"hello","protocol":1,"name":"{}","description":"{}"}}"#,
+            "é".repeat(MAX_NAME),
+            "word ".repeat(MAX_DESCRIPTION)
+        );
+        let about = hello(&long);
+        assert_eq!(about.name, Some("é".repeat(MAX_NAME / 2)));
+        let description = about.description.unwrap();
+        assert!(description.len() <= MAX_DESCRIPTION && description.ends_with("word"));
     }
 
     #[test]
@@ -692,7 +801,20 @@ mod tests {
         let log = || prop::collection::vec(text(), 0..8);
         let marks = || prop::collection::vec(mark(), 0..8);
         prop_oneof![
-            Just(FromBot::Hello(Hello { protocol: 1 })),
+            (
+                prop::option::of(text()),
+                prop::option::of(text()),
+                prop::option::of(text())
+            )
+                .prop_map(|(name, author, description)| {
+                    let mut about = About {
+                        name,
+                        author,
+                        description,
+                    };
+                    about.clean();
+                    FromBot::Hello(Hello { protocol: 1, about })
+                }),
             (prop::option::of(any::<u64>()), log(), marks()).prop_map(|(init_us, log, marks)| {
                 FromBot::Ready(Ready {
                     init_us,
@@ -730,6 +852,34 @@ mod tests {
         #[test]
         fn bot_messages_roundtrip(msg in from_bot()) {
             prop_assert_eq!(decode_bot_line(encode_line(&msg).as_bytes()), Ok(msg));
+        }
+
+        #[test]
+        fn cleaned_texts_are_plain_lines(
+            name in any::<String>(),
+            author in "(\\s|\\PC|\\p{Cc}|\u{202e}){0,100}",
+            description in "\\PC{0,1500}",
+        ) {
+            let mut about = About {
+                name: Some(name),
+                author: Some(author),
+                description: Some(description),
+            };
+            about.clean();
+            for (text, max) in [
+                (&about.name, MAX_NAME),
+                (&about.author, MAX_NAME),
+                (&about.description, MAX_DESCRIPTION),
+            ] {
+                let Some(text) = text else { continue };
+                prop_assert!(!text.is_empty() && text.len() <= max);
+                prop_assert!(!text.starts_with(' ') && !text.ends_with(' ') && !text.contains("  "));
+                let odd = |c: char| (c.is_whitespace() && c != ' ') || c.is_control() || is_bidi_control(c);
+                prop_assert!(!text.chars().any(odd));
+            }
+            let mut again = about.clone();
+            again.clean();
+            prop_assert_eq!(again, about);
         }
 
         #[test]

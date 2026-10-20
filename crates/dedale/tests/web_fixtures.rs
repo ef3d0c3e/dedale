@@ -76,6 +76,7 @@ fn events(record: &GameRecord) -> Vec<Value> {
             .map(|p| PlayerStart {
                 name: p.name.clone(),
                 path: p.path.clone(),
+                about: p.about.clone(),
                 start: p.start,
             })
             .collect(),
@@ -150,6 +151,7 @@ fn tournament(record: &GameRecord) -> TournamentReport {
             .map(|p| BotInfo {
                 name: p.name.clone(),
                 path: p.path.clone(),
+                about: p.about.clone(),
             })
             .collect(),
         games: games

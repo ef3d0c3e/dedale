@@ -3,6 +3,13 @@
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::thread;
+use std::time::{Duration, Instant};
+
+use dedale_core::protocol::{About, FromBot, decode_bot_line};
+
+use crate::interrupt;
+use crate::process::{BotProcess, Output};
 
 /// A competitor program: a Python bot, or any executable speaking the raw
 /// protocol.
@@ -40,6 +47,37 @@ impl BotSpec {
         )
     }
 
+    /// What the bot says about itself in its `hello`: starts
+    /// it, reads its first line and stops it. A Python bot's harness reads
+    /// it from the source, so none of the bot's code runs. Empty when the
+    /// bot does not start or says no `hello` within `timeout`: its game
+    /// reports why.
+    #[must_use]
+    pub fn about(&self, launcher: &Launcher, timeout: Duration) -> About {
+        let Ok(process) = BotProcess::spawn(self.command(launcher), None) else {
+            return About::default();
+        };
+        let deadline = Instant::now() + timeout;
+        // Dropping the process kills it.
+        loop {
+            if interrupt::requested() {
+                return About::default();
+            }
+            let slice = deadline.min(Instant::now() + interrupt::POLL);
+            match process.recv_until(slice) {
+                Some(Output::Line { line, .. }) => {
+                    return match decode_bot_line(&line) {
+                        Ok(FromBot::Hello(hello)) => hello.about,
+                        _ => About::default(),
+                    };
+                }
+                Some(_) => return About::default(),
+                None if slice >= deadline => return About::default(),
+                None => {}
+            }
+        }
+    }
+
     /// The command that starts the bot. Paths are made absolute so a bare
     /// file name is never looked up in `PATH`.
     #[must_use]
@@ -58,6 +96,21 @@ impl BotSpec {
             BotSpec::Executable(path) => Command::new(absolute(path)),
         }
     }
+}
+
+/// [`BotSpec::about`] for every bot, all at once.
+#[must_use]
+pub fn abouts(specs: &[BotSpec], launcher: &Launcher, timeout: Duration) -> Vec<About> {
+    thread::scope(|scope| {
+        let probes: Vec<_> = specs
+            .iter()
+            .map(|spec| scope.spawn(move || spec.about(launcher, timeout)))
+            .collect();
+        probes
+            .into_iter()
+            .map(|probe| probe.join().unwrap_or_default())
+            .collect()
+    })
 }
 
 /// How Python bots are started.

@@ -14,14 +14,15 @@ use dedale_core::game::Seating;
 use dedale_core::game::Snapshot;
 use dedale_core::generator::generate;
 use dedale_core::maze::Maze;
+use dedale_core::protocol::About;
 use dedale_core::record::{GameRecord, StartupRecord, TurnRecord};
 use dedale_core::rng::fresh_seed;
 
-use super::run::{TimingArgs, unique_names};
+use super::run::{TimingArgs, file_names, player_names};
 use super::serve::LiveArgs;
 use super::summary::{describe, format_table, score};
 use super::{CliResult, ColorChoice, MazeArgs, timestamp};
-use crate::bot::BotSpec;
+use crate::bot::{BotSpec, abouts};
 use crate::python::PythonRuntime;
 use crate::referee::{Entrant, GameStart, Observer};
 use crate::render::{Style, format_us};
@@ -94,12 +95,17 @@ pub(crate) fn run(args: &TournamentArgs) -> CliResult {
     let runtime = PythonRuntime::extract()?;
     let launcher = runtime.launcher(args.python.clone());
     let specs: Vec<BotSpec> = args.bots.iter().map(BotSpec::from_path).collect();
-    let names = unique_names(&specs);
+    // The seating is set per game.
+    let config = args.timing.config(Seating::Solo);
+    let abouts = abouts(&specs, &launcher, config.hello_timeout);
+    let names = player_names(&specs, &abouts);
+    let files = file_names(&specs);
     let entrant = |bot: usize, dir: &Path| Entrant {
         name: names[bot].clone(),
         path: specs[bot].path().display().to_string(),
+        about: abouts[bot].clone(),
         command: specs[bot].command(&launcher),
-        stderr_log: Some(dir.join(format!("{}.stderr.log", names[bot]))),
+        stderr_log: Some(dir.join(format!("{}.stderr.log", files[bot]))),
     };
     let maze = |plan: &GamePlan| match (&map, plan.code) {
         (Some(maze), _) => maze.clone(),
@@ -128,20 +134,20 @@ pub(crate) fn run(args: &TournamentArgs) -> CliResult {
         }
         e
     };
-    // The seating is set per game.
-    let config = args.timing.config(Seating::Solo);
     let mut progress = Progress {
         names: &names,
+        files: &files,
         total: plans.len(),
         mode,
         live: live
             .as_ref()
             .map(|l| (Arc::clone(&l.live), l.live.observer())),
     };
-    let games = play(&plans, &names, maze, entrant, &config, &out, &mut progress)
+    let games = play(&plans, &files, maze, entrant, &config, &out, &mut progress)
         .map_err(|e| fail(e.into()))?;
 
-    let report = report(args, mode, master_seed, source, &specs, &names, &games);
+    let bots = bot_infos(&specs, &names, &abouts);
+    let report = report(args, mode, master_seed, source, bots, &files, &games);
     let path = out.join("tournament.json");
     fs::write(&path, serde_json::to_string_pretty(&report)? + "\n")
         .map_err(|e| fail(format!("cannot write {}: {e}", path.display()).into()))?;
@@ -154,7 +160,7 @@ pub(crate) fn run(args: &TournamentArgs) -> CliResult {
     write!(
         stdout,
         "{}",
-        leaderboard_table(mode, &report.leaderboard, style)
+        leaderboard_table(mode, &report.leaderboard, &report.bots, style)
     )?;
     writeln!(stdout)?;
     writeln!(stdout, "results  {}", path.display())?;
@@ -172,6 +178,7 @@ pub(crate) fn run(args: &TournamentArgs) -> CliResult {
 /// everything.
 struct Progress<'a> {
     names: &'a [String],
+    files: &'a [String],
     total: usize,
     mode: Mode,
     live: Option<(Arc<Live>, LiveObserver)>,
@@ -208,7 +215,7 @@ impl TournamentObserver for Progress<'_> {
         let Some((plan, record)) = games.last() else {
             return;
         };
-        let dir = game_dir(plan, self.names);
+        let dir = game_dir(plan, self.files);
         let name = dir
             .file_name()
             .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
@@ -247,16 +254,31 @@ fn settings(timing: &TimingArgs, source: &MazeSource, master_seed: u64) -> Strin
     )
 }
 
+/// The bots as `tournament.json` lists them.
+fn bot_infos(specs: &[BotSpec], names: &[String], abouts: &[About]) -> Vec<BotInfo> {
+    specs
+        .iter()
+        .zip(names)
+        .zip(abouts)
+        .map(|((spec, name), about)| BotInfo {
+            name: name.clone(),
+            path: spec.path().display().to_string(),
+            about: about.clone(),
+        })
+        .collect()
+}
+
 /// `tournament.json`.
 fn report(
     args: &TournamentArgs,
     mode: Mode,
     master_seed: u64,
     maze: MazeSource,
-    specs: &[BotSpec],
-    names: &[String],
+    bots: Vec<BotInfo>,
+    files: &[String],
     games: &[(GamePlan, GameRecord)],
 ) -> TournamentReport {
+    let names: Vec<String> = bots.iter().map(|b| b.name.clone()).collect();
     TournamentReport {
         format: TOURNAMENT_FORMAT,
         dedale: env!("CARGO_PKG_VERSION").to_owned(),
@@ -266,19 +288,12 @@ fn report(
         startup_ms: args.timing.startup_ms,
         move_ms: args.timing.move_ms,
         max_turns: args.timing.max_turns,
-        bots: specs
-            .iter()
-            .zip(names)
-            .map(|(spec, name)| BotInfo {
-                name: name.clone(),
-                path: spec.path().display().to_string(),
-            })
-            .collect(),
+        bots,
         games: games
             .iter()
-            .map(|(plan, record)| entry(plan, record, names))
+            .map(|(plan, record)| entry(plan, record, files))
             .collect(),
-        leaderboard: standings(mode, names, games),
+        leaderboard: standings(mode, &names, games),
     }
 }
 
@@ -313,18 +328,19 @@ fn mazes(args: &TournamentArgs) -> CliResult<(Option<MazeParams>, Option<Maze>, 
     Ok((Some(p), None, source))
 }
 
-fn entry(plan: &GamePlan, record: &GameRecord, names: &[String]) -> GameEntry {
+fn entry(plan: &GamePlan, record: &GameRecord, files: &[String]) -> GameEntry {
     GameEntry {
         plan: plan.clone(),
         result: record.result.clone(),
-        replay: game_dir(plan, names)
+        replay: game_dir(plan, files)
             .join("replay.json")
             .display()
             .to_string(),
     }
 }
 
-fn leaderboard_table(mode: Mode, standings: &[Standing], style: Style) -> String {
+/// With an author column when a bot gives one.
+fn leaderboard_table(mode: Mode, standings: &[Standing], bots: &[BotInfo], style: Style) -> String {
     let latency = |s: &Standing| {
         s.latency_us.map_or_else(
             || "-".to_owned(),
@@ -332,7 +348,7 @@ fn leaderboard_table(mode: Mode, standings: &[Standing], style: Style) -> String
         )
     };
     let total = |half: u64| score(u32::try_from(half).unwrap_or(u32::MAX));
-    let (header, right): (Vec<&str>, &[usize]) = match mode {
+    let (mut header, right): (Vec<&str>, &[usize]) = match mode {
         Mode::Duo => (
             vec![
                 "rank",
@@ -360,9 +376,19 @@ fn leaderboard_table(mode: Mode, standings: &[Standing], style: Style) -> String
             &[2, 3, 4, 5],
         ),
     };
+    let authors = bots.iter().any(|b| b.about.author.is_some());
+    let author = |s: &Standing| {
+        let about = bots.get(s.bot).map(|b| &b.about);
+        about
+            .and_then(|a| a.author.clone())
+            .unwrap_or_else(|| "-".to_owned())
+    };
+    if authors {
+        header.insert(2, "author");
+    }
     let mut rows = vec![header.into_iter().map(str::to_owned).collect::<Vec<_>>()];
     for s in standings {
-        let row = match mode {
+        let mut row = match mode {
             Mode::Duo => vec![
                 s.rank.to_string(),
                 s.name.clone(),
@@ -384,7 +410,11 @@ fn leaderboard_table(mode: Mode, standings: &[Standing], style: Style) -> String
                 latency(s),
             ],
         };
+        if authors {
+            row.insert(2, author(s));
+        }
         rows.push(row);
     }
-    format_table(&rows, right)
+    let right: Vec<usize> = right.iter().map(|&c| c + usize::from(authors)).collect();
+    format_table(&rows, &right)
 }

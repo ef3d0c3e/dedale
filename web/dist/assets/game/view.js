@@ -1,6 +1,7 @@
 // The game screen: header, maze, timeline (scrubber, controls, problem
 // markers, keyboard) and the stats table. Works for recorded games and,
 // through `update`, for games being played.
+import { aboutList } from "../about.js";
 import { h, replace } from "../dom.js";
 import { describeResult, formatUs, letter, outcomeName, score } from "../format.js";
 import { MazeCanvas } from "./canvas.js";
@@ -88,7 +89,7 @@ export class GameView {
         });
         this.stats = h("div", { class: "stats" });
         const controls = h("div", { class: "controls" }, button("⏮", "First turn (Home)", () => this.jump(0)), button("←", "Previous turn (←)", () => this.jump(step(this.turn, -1, this.last))), this.playButton, button("→", "Next turn (→)", () => this.jump(step(this.turn, 1, this.last))), button("⏭", "Last turn (End)", () => this.jump(this.last)), button("⟨!", "Previous problem (p)", () => this.problem(-1)), button("!⟩", "Next problem (n)", () => this.problem(1)), speed, this.turnLabel);
-        this.element = h("section", { class: "game" }, this.head, h("div", { class: "game-body" }, this.boardColumn, this.side), h("div", { class: "timeline" }, controls, this.range, this.strip), this.stats);
+        this.element = h("section", { class: "game" }, this.head, aboutList(data.players, true), h("div", { class: "game-body" }, this.boardColumn, this.side), h("div", { class: "timeline" }, controls, this.range, this.strip), this.stats);
         this.canvas.element.addEventListener("mousemove", (event) => this.describeCell(event));
         this.canvas.element.addEventListener("mouseleave", () => {
             this.hover.textContent = " ";

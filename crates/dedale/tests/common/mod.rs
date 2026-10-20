@@ -10,6 +10,7 @@ use std::process::Command;
 use dedale::bot::BotSpec;
 use dedale::python::PythonRuntime;
 use dedale::referee::Entrant;
+use dedale_core::protocol::About;
 
 /// The scripted fake bot's executable.
 pub fn fake_bot_path() -> &'static str {
@@ -54,6 +55,7 @@ pub fn python_entrant(runtime: &PythonRuntime, path: &Path) -> Entrant {
     Entrant {
         name: spec.name(),
         path: path.display().to_string(),
+        about: About::default(),
         command: spec.command(&runtime.launcher(python())),
         stderr_log: None,
     }

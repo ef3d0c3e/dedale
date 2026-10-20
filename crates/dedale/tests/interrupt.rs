@@ -10,6 +10,7 @@ use dedale::interrupt;
 use dedale::referee::{Entrant, MatchConfig, MatchError, Observer, run_match};
 use dedale_core::game::Seating;
 use dedale_core::maze::Maze;
+use dedale_core::protocol::About;
 
 /// Pauses forever before turn 2, and asks to stop once there.
 #[derive(Default)]
@@ -35,6 +36,7 @@ fn a_stop_request_ends_a_held_game() {
     let entrant = Entrant {
         name: "bot".to_owned(),
         path: "fake:bot".to_owned(),
+        about: About::default(),
         command: fake_bot(&[]),
         stderr_log: None,
     };

@@ -1,5 +1,6 @@
 // One tournament: leaderboard and games.
 
+import { aboutList } from "../about.ts";
 import { h, replace } from "../dom.ts";
 import { describeResult } from "../format.ts";
 import { leaderboard, players, replayPath, seatingName, settings } from "../results.ts";
@@ -50,6 +51,7 @@ export function tournament(container: HTMLElement, ctx: Context, path: string): 
         h("h2", {}, `${report.mode} tournament: ${report.bots.map((b) => b.name).join(" vs ")}`),
         h("p", { class: "muted path" }, path),
         h("p", { class: "muted" }, settings(report)),
+        aboutList(report.bots, false),
         h("h3", {}, "Leaderboard"),
         h("div", { class: "scroll-x" }, table(leaderboard(report.mode, report.leaderboard))),
         h("h3", {}, "Games"),
