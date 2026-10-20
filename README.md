@@ -161,7 +161,7 @@ dedale tournament examples/python/rollout_bot.py examples/python/greedy_bot.py -
 ```
 
 Add `--points 100` for sparse mazes, and `--view` to watch them think: the
-maze shows `tour_bot`'s route and next stops, and `rollout_bot`'s playout,
+maze shows `tour_bot`'s route and next stops and `rollout_bot`'s playout,
 as each bot draws them.
 
 ## Commands

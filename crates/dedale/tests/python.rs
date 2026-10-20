@@ -224,6 +224,52 @@ fn the_combo_bot_plans_alone_and_looks_ahead_in_a_duo() {
 }
 
 #[test]
+fn the_score_bot_clears_mazes_faster_than_greedy() {
+    for code in [
+        "ded2-31x31-l25-p65535-9f3a0c11d2e4b6a8",
+        "ded2-31x31-l25-p100-0000000000000002",
+    ] {
+        let greedy = cleared_on(&example_game(&["greedy_bot"], code, Seating::Solo));
+        let score = cleared_on(&example_game(&["score_bot"], code, Seating::Solo));
+        assert!(
+            score * 100 < greedy * 95,
+            "{code}: score {score}, greedy {greedy}"
+        );
+    }
+}
+
+#[test]
+fn the_score_bot_beats_greedy_from_either_corner() {
+    let code = "ded2-21x21-l25-p65535-0123456789abcdef";
+    for seating in [Seating::Duo, Seating::DuoSwapped] {
+        let record = example_game(&["score_bot", "greedy_bot"], code, seating);
+        assert_eq!(record.result.reason, EndReason::Cleared);
+        assert_eq!(
+            record.result.winner,
+            Some(0),
+            "{seating:?}: {:?}",
+            record.result
+        );
+        // It draws its way to the best point, and the next ones.
+        let marks = &record.turns[0].players[0].marks;
+        assert_eq!(marks[0].kind, MarkKind::Path);
+        assert_eq!(marks[1].color, Some(MarkColor::Yellow));
+    }
+}
+
+#[test]
+fn two_score_bots_clear_the_maze() {
+    let code = "ded2-21x21-l25-p40-0000000000000005";
+    let record = example_game(&["score_bot", "score_bot"], code, Seating::Duo);
+    assert_eq!(
+        record.result.reason,
+        EndReason::Cleared,
+        "{:?}",
+        record.result
+    );
+}
+
+#[test]
 fn a_slow_init_starts_late() {
     let record = play_test_bot("slow_init");
     assert_eq!(record.players[0].startup.outcome, StartupOutcome::Late);
