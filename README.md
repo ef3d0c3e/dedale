@@ -322,8 +322,12 @@ ones a bot played. A file Dedale cannot read is listed with the reason.
 - **heatmaps** under the maze: how often each player stood on each cell, or
   which player took each point, shaded by the order they were taken in.
 - **charts**: latency and time inside `move()` per turn (log scale, the move
-  budget drawn), and the score of each player over the game. Hover to read
-  a turn's values; click to go to it.
+  budget dashed, problems as red dots), and each player's score with the
+  points left. A scanner marks the turn shown on every chart and follows it
+  as you step, play or seek; the legends read that turn's values, or the
+  turn under the pointer. Hover any chart to see every chart's cursor, drag
+  across one to zoom them all on those turns, double-click to see the whole
+  game again, and click to go to a turn.
 - the **statistics** of the game.
 
 | Key | |

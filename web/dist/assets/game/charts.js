@@ -1,168 +1,300 @@
-// Latency, time in move() and score over the whole game, drawn on canvas:
-// hover reads the values, a click shows that turn.
+// Latency, time in move() and score over the whole game, drawn with uPlot
+// (vendored, MIT): the values under the cursor in each legend, cursors and
+// zoom shared by every chart (drag to zoom, double-click to see it all), a
+// scanner at the turn shown, and a click to show a turn.
 import { h } from "../dom.js";
-import { formatUs, letter, score } from "../format.js";
-import { downsample, linearScale, logScale, series, turnAt, turnX, } from "./series.js";
-import { markers } from "./timeline.js";
-const HEIGHT = 110;
-const GUTTER = 64;
-const MARKS = 6;
-function colours() {
+import { formatUs, letter, outcomeName, score } from "../format.js";
+import uPlot from "../vendor/uplot/uPlot.esm.js";
+import { durationTick, forLog, points, pointsLeft, powersOfTen, problems, series, } from "./series.js";
+const HEIGHT = 150;
+/** A press that moves less than this is a click, not a zoom. */
+const CLICK_PX = 4;
+function palette() {
     const style = getComputedStyle(document.documentElement);
     const v = (name) => style.getPropertyValue(name).trim();
     return {
         a: v("--player-a"),
         b: v("--player-b"),
-        line: v("--line"),
         muted: v("--muted"),
-        fg: v("--fg"),
-        timeout: v("--kind-timeout"),
+        line: v("--line"),
+        budget: v("--kind-timeout"),
         problem: v("--kind-error"),
     };
 }
+const TITLES = {
+    latency: "latency",
+    think: "time in move()",
+    score: "score",
+};
+/** Charts are grouped per screen, so screens never share a cursor. */
+let screens = 0;
 export class Charts {
     element;
     data;
-    charts;
-    readout;
+    onJump;
+    body;
+    key = `dedale-charts-${++screens}`;
+    cleanups = [];
+    plots = [];
     turn = 0;
+    syncing = false;
+    zoomed = false;
     constructor(data, onJump) {
         this.data = data;
-        const chart = (title, metric, format) => ({
-            title,
-            metric,
-            canvas: h("canvas", { class: "chart" }),
-            cache: document.createElement("canvas"),
-            format,
-        });
-        this.charts = [
-            chart("latency", "latency_us", formatUs),
-            chart("in move()", "think_us", formatUs),
-            chart("score", "half_points", score),
-        ];
-        this.readout = h("div", { class: "readout muted" }, " ");
-        this.element = h("details", { class: "charts", open: true }, h("summary", {}, "Charts"), this.charts.map((c) => h("div", { class: "chart-block" }, h("div", { class: "chart-title" }, c.title), c.canvas)), this.readout);
-        for (const c of this.charts) {
-            c.canvas.addEventListener("mousemove", (event) => this.hover(c, event));
-            c.canvas.addEventListener("mouseleave", () => {
-                this.readout.textContent = " ";
-            });
-            c.canvas.addEventListener("click", (event) => {
-                const turn = this.turnUnder(c, event);
-                if (turn !== null)
-                    onJump(turn);
-            });
-        }
-        new ResizeObserver(() => this.update()).observe(this.element);
+        this.onJump = onJump;
+        this.body = h("div", { class: "chart-list" });
+        this.element = h("details", { class: "charts", open: true }, h("summary", {}, "Charts"), this.body);
+        const resize = new ResizeObserver(() => this.resize());
+        resize.observe(this.body);
+        this.cleanups.push(() => resize.disconnect());
+        // Colours come from the theme: build again when it changes.
+        const dark = matchMedia("(prefers-color-scheme: dark)");
+        const rebuild = () => this.build();
+        dark.addEventListener("change", rebuild);
+        this.cleanups.push(() => dark.removeEventListener("change", rebuild));
+        this.build();
     }
-    /** Redraws everything (new turns, resize, theme). */
+    /** The game gained turns or ended. */
     update() {
-        for (const c of this.charts)
-            this.render(c);
-        this.mark(this.turn);
+        for (const p of this.plots)
+            p.plot.setData(this.rows(p.kind), !this.zoomed);
+        this.placeAll();
     }
-    /** Marks the shown turn. */
+    /** Moves the scanner to the shown turn. */
     mark(turn) {
         this.turn = turn;
-        const n = this.data.model.length;
-        const fg = colours().fg;
-        for (const c of this.charts) {
-            const ctx = c.canvas.getContext("2d");
-            if (!ctx || c.cache.width === 0)
-                continue;
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, c.canvas.width, c.canvas.height);
-            ctx.drawImage(c.cache, 0, 0);
-            if (turn > 0 && n > 0) {
-                const dpr = window.devicePixelRatio || 1;
-                const plot = c.canvas.width / dpr - GUTTER;
-                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                ctx.fillStyle = fg;
-                ctx.fillRect(GUTTER + turnX(turn, plot, n) - 0.5, 0, 1, HEIGHT);
-            }
+        this.placeAll();
+    }
+    dispose() {
+        for (const p of this.plots)
+            p.plot.destroy();
+        this.plots = [];
+        for (const cleanup of this.cleanups)
+            cleanup();
+    }
+    get turns() {
+        return this.data.model.turns;
+    }
+    build() {
+        for (const p of this.plots)
+            p.plot.destroy();
+        this.body.replaceChildren();
+        const colours = palette();
+        this.plots = ["latency", "think", "score"].map((kind) => {
+            const target = h("div", { class: "chart" });
+            this.body.append(h("div", { class: "chart-block" }, h("div", { class: "chart-title" }, TITLES[kind]), target));
+            const plot = new uPlot(this.options(kind, colours), this.rows(kind), target);
+            const scanner = h("div", { class: "scanner", hidden: true });
+            if (kind === "latency")
+                scanner.append(h("span", { class: "scanner-turn" }));
+            plot.over.append(scanner);
+            const p = { kind, plot, scanner, hovered: false };
+            this.clicks(p);
+            return p;
+        });
+        this.resize();
+    }
+    /** The data of one chart: the turns, then one row per series. */
+    rows(kind) {
+        const turns = this.turns;
+        const x = turns.map((_, i) => i + 1);
+        const players = this.data.players.map((_, i) => i);
+        const budget = this.data.config.move_ms * 1000;
+        switch (kind) {
+            case "latency":
+                return [
+                    x,
+                    ...players.map((i) => forLog(series(turns, i, "latency_us"))),
+                    // A problem sits on its latency, or on the budget when there was none.
+                    ...players.map((i) => problems(turns, i, (t) => Math.max(1, turns[t]?.players[i]?.latency_us ?? budget))),
+                ];
+            case "think":
+                return [x, ...players.map((i) => forLog(series(turns, i, "think_us")))];
+            case "score":
+                return [
+                    x,
+                    ...players.map((i) => points(series(turns, i, "half_points"))),
+                    pointsLeft(this.data.model.state(0).remaining, turns),
+                ];
         }
     }
-    turnUnder(c, event) {
-        const n = this.data.model.length;
-        const box = c.canvas.getBoundingClientRect();
-        const x = event.clientX - box.left - GUTTER;
-        return n > 0 && x >= 0 ? turnAt(x, box.width - GUTTER, n) : null;
+    options(kind, colours) {
+        const log = kind !== "score";
+        const stepped = kind === "score" ? uPlot.paths.stepped?.({ align: 1 }) : undefined;
+        const format = log ? formatUs : (v) => score(Math.round(v * 2));
+        const shown = (v) => v === null || v === undefined ? "-" : format(v);
+        const budget = this.data.config.move_ms * 1000;
+        const players = this.data.players.map((p, i) => ({
+            label: `${letter(i)} ${p.name}`,
+            stroke: i === 0 ? colours.a : colours.b,
+            width: 1.5,
+            value: (_u, v) => shown(v),
+            ...(stepped ? { paths: stepped } : {}),
+        }));
+        const extra = kind === "latency"
+            ? this.data.players.map((_, i) => ({
+                label: `${letter(i)} problems`,
+                stroke: colours.problem,
+                fill: colours.problem,
+                paths: () => null,
+                points: { show: true, size: 7, stroke: colours.problem, fill: colours.problem },
+                value: (_u, v, _s, index) => {
+                    const outcome = index === null ? undefined : this.turns[index]?.players[i]?.outcome;
+                    return v === null || outcome === undefined ? "-" : outcomeName(outcome);
+                },
+            }))
+            : kind === "score"
+                ? [
+                    {
+                        label: "points left",
+                        stroke: colours.muted,
+                        width: 1,
+                        dash: [4, 4],
+                        value: (_u, v) => shown(v),
+                    },
+                ]
+                : [];
+        const axis = {
+            stroke: colours.muted,
+            grid: { stroke: colours.line, width: 1 },
+            ticks: { stroke: colours.line, width: 1 },
+            font: "11px system-ui, sans-serif",
+        };
+        return {
+            width: 600,
+            height: HEIGHT,
+            series: [
+                { label: "turn", value: (_u, v) => (v === null ? "-" : String(v)) },
+                ...players,
+                ...extra,
+            ],
+            scales: {
+                x: {
+                    time: false,
+                    // Every turn when nothing is zoomed, at least two so an empty game draws.
+                    range: (_u, min, max) => [
+                        Number.isFinite(min) ? min : 1,
+                        Number.isFinite(max) && max > min ? max : Math.max(2, this.turns.length),
+                    ],
+                },
+                y: log
+                    ? {
+                        distr: 3,
+                        log: 10,
+                        range: (_u, _min, max) => uPlot.rangeLog(1, Math.max(Number.isFinite(max) ? max : 1, budget), 10, true),
+                    }
+                    : { range: (_u, _min, max) => [0, Math.max(1, Number.isFinite(max) ? max : 1)] },
+            },
+            axes: [
+                axis,
+                {
+                    ...axis,
+                    size: 64,
+                    values: (_u, ticks) => ticks.map((t) => (t === null ? "" : log ? durationTick(t) : format(t))),
+                    ...(log
+                        ? {
+                            splits: (_u, _axis, min, max) => powersOfTen(min, max),
+                            // Every power of ten keeps its label.
+                            filter: (_u, splits) => splits,
+                        }
+                        : {}),
+                },
+            ],
+            cursor: {
+                sync: { key: this.key },
+                drag: { x: true, y: false },
+                points: { size: 6 },
+            },
+            hooks: {
+                draw: log ? [(u) => this.drawBudget(u, budget, colours.budget)] : [],
+                setScale: [(u, key) => key === "x" && this.scaled(u)],
+                setSize: [() => this.placeAll()],
+            },
+        };
     }
-    hover(c, event) {
-        const turn = this.turnUnder(c, event);
-        if (turn === null)
+    /** The move budget across a duration chart, dashed. */
+    drawBudget(u, budget, colour) {
+        const y = Math.round(u.valToPos(budget, "y", true));
+        const { left, top, width, height } = u.bbox;
+        if (y < top || y > top + height)
             return;
-        const record = this.data.model.turns[turn - 1];
-        const parts = this.data.players.map((p, i) => {
-            const value = record?.players[i]?.[c.metric];
-            return `${letter(i)} ${p.name} ${value === null || value === undefined ? "-" : c.format(value)}`;
-        });
-        this.readout.textContent = `turn ${turn} · ${c.title}: ${parts.join(" · ")}`;
-    }
-    render(c) {
+        const ctx = u.ctx;
         const dpr = window.devicePixelRatio || 1;
-        const width = Math.max(GUTTER + 50, c.canvas.parentElement?.clientWidth ?? 600);
-        const plot = width - GUTTER;
-        c.canvas.width = Math.round(width * dpr);
-        c.canvas.height = Math.round(HEIGHT * dpr);
-        c.canvas.style.width = `${width}px`;
-        c.canvas.style.height = `${HEIGHT}px`;
-        c.cache.width = c.canvas.width;
-        c.cache.height = c.canvas.height;
-        const ctx = c.cache.getContext("2d");
-        if (!ctx)
+        ctx.save();
+        ctx.strokeStyle = colour;
+        ctx.lineWidth = 1.5 * dpr;
+        ctx.setLineDash([6 * dpr, 4 * dpr]);
+        ctx.beginPath();
+        ctx.moveTo(left, y);
+        ctx.lineTo(left + width, y);
+        ctx.stroke();
+        ctx.restore();
+    }
+    /** One chart zoomed: the others follow, and the scanner moves. */
+    scaled(source) {
+        const { min, max } = source.scales["x"] ?? {};
+        if (min === undefined || max === undefined)
             return;
-        ctx.scale(dpr, dpr);
-        const palette = colours();
-        const turns = this.data.model.turns;
-        const n = turns.length;
-        const values = this.data.players.map((_, i) => series(turns, i, c.metric));
-        const highest = Math.max(0, ...values.flat().map((v) => v ?? 0));
-        const timeoutUs = this.data.config.move_ms * 1000;
-        const scale = c.metric === "half_points"
-            ? linearScale(highest / 2)
-            : logScale(Math.max(highest, timeoutUs));
-        const value = (v) => (c.metric === "half_points" ? v / 2 : v);
-        const plotTop = 8;
-        const plotHeight = HEIGHT - plotTop - MARKS - 2;
-        const y = (v) => plotTop + plotHeight * (1 - scale.at(value(v)));
-        ctx.font = "11px system-ui, sans-serif";
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "right";
-        for (const tick of scale.ticks) {
-            const ty = plotTop + plotHeight * (1 - scale.at(tick));
-            ctx.fillStyle = palette.line;
-            ctx.fillRect(GUTTER, Math.round(ty), plot, 1);
-            ctx.fillStyle = palette.muted;
-            ctx.fillText(c.metric === "half_points" ? String(tick) : formatUs(tick), GUTTER - 6, ty);
-        }
-        if (c.metric !== "half_points") {
-            // The move budget.
-            ctx.fillStyle = palette.timeout;
-            ctx.fillRect(GUTTER, Math.round(y(timeoutUs)), plot, 1.5);
-        }
-        if (n === 0)
-            return;
-        values.forEach((points, i) => {
-            ctx.fillStyle = i === 0 ? palette.a : palette.b;
-            const buckets = downsample(points, plot);
-            const step = plot / buckets.length;
-            buckets.forEach((bucket, column) => {
-                if (!bucket)
-                    return;
-                const top = y(bucket.max);
-                const bottom = y(bucket.min);
-                const x = GUTTER + column * step;
-                ctx.fillRect(x, top - 1, Math.max(1, step), Math.max(2, bottom - top + 2));
-            });
-        });
-        if (c.metric === "latency_us") {
-            // Problems, as ticks under the plot.
-            ctx.fillStyle = palette.problem;
-            for (const m of markers(turns, this.data.events)) {
-                const x = GUTTER + turnX(m.turn, plot, n);
-                ctx.fillRect(x - 0.5, HEIGHT - MARKS + (m.player === 0 ? 0 : MARKS / 2), Math.max(1, plot / n), MARKS / 2);
+        this.zoomed = min > 1 || max < this.turns.length;
+        if (!this.syncing) {
+            this.syncing = true;
+            for (const p of this.plots) {
+                if (p.plot !== source)
+                    p.plot.setScale("x", { min, max });
             }
+            this.syncing = false;
         }
+        this.placeAll();
+    }
+    /** A click (a press that hardly moves) shows the turn under it. */
+    clicks(p) {
+        const plot = p.plot;
+        let down = null;
+        plot.over.addEventListener("mouseenter", () => {
+            p.hovered = true;
+        });
+        plot.over.addEventListener("mouseleave", () => {
+            p.hovered = false;
+            // After uPlot clears the legend for the pointer leaving.
+            setTimeout(() => this.place(p));
+        });
+        plot.over.addEventListener("mousedown", (event) => {
+            down = event.clientX;
+        });
+        plot.over.addEventListener("mouseup", (event) => {
+            const n = this.turns.length;
+            if (down !== null && Math.abs(event.clientX - down) < CLICK_PX && n > 0) {
+                const turn = Math.round(plot.posToVal(event.offsetX, "x"));
+                this.onJump(Math.max(1, Math.min(n, turn)));
+            }
+            down = null;
+        });
+    }
+    resize() {
+        const width = this.body.clientWidth;
+        if (width === 0)
+            return;
+        for (const p of this.plots)
+            p.plot.setSize({ width, height: HEIGHT });
+    }
+    placeAll() {
+        for (const p of this.plots)
+            this.place(p);
+    }
+    place(p) {
+        const { min, max } = p.plot.scales["x"] ?? {};
+        const turn = this.turn;
+        const visible = turn >= 1 && min !== undefined && max !== undefined && turn >= min && turn <= max;
+        p.scanner.hidden = !visible;
+        // Away from the pointer, the legend reads the turn shown.
+        if (!p.hovered && turn >= 1 && turn <= this.turns.length) {
+            p.plot.setLegend({ idx: turn - 1 }, false);
+        }
+        if (!visible)
+            return;
+        p.scanner.style.left = `${p.plot.valToPos(turn, "x")}px`;
+        const label = p.scanner.firstElementChild;
+        if (label)
+            label.textContent = `turn ${turn}`;
     }
 }

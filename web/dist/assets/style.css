@@ -403,23 +403,73 @@ pre.scroll {
 }
 
 .chart-block {
-  margin-top: 0.4rem;
+  margin-top: 0.8rem;
 }
 
 .chart-title {
   font-size: 0.85rem;
+  font-weight: 600;
   color: var(--muted);
 }
 
-.chart {
-  display: block;
+/* uPlot, in the app's colours. */
+.charts .uplot {
+  font-family: var(--font);
+  color: var(--fg);
+}
+
+.charts .u-over {
   cursor: crosshair;
 }
 
-.readout {
-  min-height: 1.5em;
-  font-size: 0.85rem;
+.charts .u-select {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.charts .u-legend {
+  font-size: 0.8rem;
+  text-align: left;
   font-variant-numeric: tabular-nums;
+}
+
+.charts .u-legend .u-series > * {
+  padding: 1px 0.3em;
+}
+
+.charts .u-legend .u-value {
+  min-width: 5.5em;
+  display: inline-block;
+}
+
+.charts .u-cursor-x {
+  border-right-color: var(--muted);
+}
+
+.charts .u-cursor-y {
+  border-bottom-color: transparent;
+}
+
+/* The turn shown, on every chart. */
+.scanner {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.scanner-turn {
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  padding: 0 0.35em;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  color: var(--panel);
+  background: var(--accent);
 }
 
 .heatmap {

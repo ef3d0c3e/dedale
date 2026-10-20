@@ -73,6 +73,10 @@ test("browsing results: runs, a game, a tournament", async () => {
   try {
     const page = await browser.newPage();
     await page.goto(dedale.url);
+    // Everything the page loads or does must fit the server's CSP.
+    await page.eval(
+      "window.violations = []; document.addEventListener('securitypolicyviolation', (e) => window.violations.push(e.violatedDirective))",
+    );
     const rows = "document.querySelectorAll('table.runs tbody tr').length";
     assert.equal(await page.waitFor<number>(rows), 4);
     assert.match(await page.text("tr.broken"), /expected/);
@@ -106,7 +110,28 @@ test("browsing results: runs, a game, a tournament", async () => {
     await page.waitFor(`${head}.includes("turn 12 / 12")`);
     assert.deepEqual(await pixel(60, 20), floor, "a collected cell is plain floor");
     assert.match(await page.text(".panel.player-0"), /exit/);
-    assert.equal(await page.eval<number>("document.querySelectorAll('canvas.chart').length"), 3);
+    // Charts (uPlot): three, with the scanner on the turn shown.
+    await page.waitFor("document.querySelectorAll('.charts .uplot').length === 3");
+    const scanner = "document.querySelector('.charts .scanner')";
+    assert.equal(await page.eval<boolean>(`${scanner}.hidden`), false);
+    assert.equal(await page.text(".charts .scanner-turn"), "turn 12");
+    const atEnd = await page.eval<number>(`parseFloat(${scanner}.style.left)`);
+    await page.press("Home", "Home", 36);
+    await page.waitFor(`${head}.includes("turn 0 / 12")`);
+    assert.equal(await page.eval<boolean>(`${scanner}.hidden`), true, "no scanner before turn 1");
+    // A click on a chart shows the turn under it.
+    await page.eval(`(() => {
+      const over = document.querySelector(".charts .u-over");
+      const box = over.getBoundingClientRect();
+      const at = { bubbles: true, clientX: box.left + box.width / 2, clientY: box.top + 10 };
+      over.dispatchEvent(new MouseEvent("mousedown", at));
+      over.dispatchEvent(new MouseEvent("mouseup", at));
+    })()`);
+    await page.waitFor(`/turn [5-8] \\/ 12/.test(${head})`);
+    const middle = await page.eval<number>(`parseFloat(${scanner}.style.left)`);
+    assert.ok(middle > 0 && middle < atEnd, `scanner at ${middle}, at the end ${atEnd}`);
+    await page.press("End", "End", 35);
+    await page.waitFor(`${head}.includes("turn 12 / 12")`);
     await page.choose("Heatmap", "visits:0");
     await page.waitFor("document.querySelector('.legend').textContent.includes('visit')");
 
@@ -145,6 +170,7 @@ test("browsing results: runs, a game, a tournament", async () => {
     await page.waitFor("document.querySelectorAll('main table').length === 2");
 
     assert.deepEqual(page.errors, []);
+    assert.deepEqual(await page.eval<string[]>("window.violations"), []);
   } finally {
     assert.equal(await dedale.stop(), 0);
   }

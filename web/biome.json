@@ -8,7 +8,9 @@
       "e2e/**",
       "scripts/**",
       "static/**",
-      "*.json"
+      "*.json",
+      "!src/vendor",
+      "!static/assets/vendor"
     ]
   },
   "formatter": {

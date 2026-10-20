@@ -42,5 +42,6 @@ export class GameScreen {
     }
     dispose() {
         this.view.dispose();
+        this.charts.dispose();
     }
 }

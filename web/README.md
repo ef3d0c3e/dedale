@@ -2,8 +2,9 @@
 
 The app behind `dedale view` and `--view` (user guide: the
 [README](../README.md#browser-app); server and events:
-[`docs/web.md`](../docs/web.md)). TypeScript, no framework and no runtime
-dependency: the maze and charts are drawn on canvas by hand.
+[`docs/web.md`](../docs/web.md)). TypeScript, no framework; the maze is
+drawn on canvas by hand. One runtime library, vendored (below): uPlot draws
+the charts.
 
 ## Layout
 
@@ -21,12 +22,28 @@ dependency: the maze and charts are drawn on canvas by hand.
 | `src/views/` | One view per route; `src/app.ts` is the shell |
 | `src/dom.ts`, `src/format.ts` | Building elements; numbers and words as the terminal prints them |
 | `static/` | `index.html` and the stylesheet, copied as they are |
+| `static/assets/vendor/uplot/` | uPlot 1.6.32 (MIT, its licence as `LICENSE.txt`), served from the binary like the rest |
+| `src/vendor/uplot/` | uPlot's type declarations, with an ES module default export |
 | `test/` | `node --test` unit tests; `test/fixtures/` comes from Rust (below) |
 | `e2e/` | End-to-end tests: the `dedale` binary and headless Chromium |
 | `dist/` | The built app, **committed**, embedded in the binary |
 
 Modules import each other with `.ts` extensions, which `tsc` rewrites to
 `.js`: the browser loads plain ES modules, with no bundler.
+
+## Vendored uPlot
+
+[uPlot](https://github.com/leeoniya/uPlot) draws the charts. It is copied
+into the app rather than loaded from a CDN, so the app works offline and
+under its CSP (`'self'` only), and building Dedale still needs no Node. The
+files are `dist/uPlot.esm.js`, `dist/uPlot.min.css`, `dist/uPlot.d.ts` and
+`LICENSE` (shipped as `LICENSE.txt`) of uplot 1.6.32, fetched from
+`https://cdn.jsdelivr.net/npm/uplot@1.6.32/` and checked against jsdelivr's
+SHA-256 listing (`https://data.jsdelivr.com/v1/package/npm/uplot@1.6.32`).
+The declarations only change `export = uPlot` into `export default uPlot`
+and drop the global. To update, fetch the same files for the new version,
+check their hashes, apply that change to the declarations, and run
+`scripts/check.sh`. Biome skips both vendor directories.
 
 ## Working on it
 

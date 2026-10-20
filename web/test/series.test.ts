@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  columnRange,
-  downsample,
-  linearScale,
-  logScale,
+  durationTick,
+  forLog,
+  points,
+  pointsLeft,
+  powersOfTen,
+  problems,
   series,
-  turnAt,
-  turnX,
 } from "../src/game/series.ts";
 import { parseReplay } from "../src/validate.ts";
 import { fixture } from "./load.ts";
@@ -32,78 +32,52 @@ test("series are one value per turn", () => {
   assert.equal(series(silent, 1, "latency_us")[2], null, "an unanswered turn has no latency");
 });
 
-test("downsampling keeps every spike and the bounds", () => {
-  const values: (number | null)[] = Array.from({ length: 10_000 }, (_, i) =>
-    i % 2 === 0 ? 10 : 20,
-  );
-  values[4321] = 99_999;
-  values[777] = 1;
-  values[5000] = null;
-  const buckets = downsample(values, 300);
-  assert.equal(buckets.length, 300);
-  const all = buckets.flatMap((b) => (b ? [b.min, b.max] : []));
-  assert.equal(Math.max(...all), 99_999);
-  assert.equal(Math.min(...all), 1);
-  // The spike lands in the column covering its turn.
-  const column = buckets.findIndex((b) => b?.max === 99_999);
-  const [from, to] = columnRange(column, values.length, 300);
-  assert.ok(from <= 4321 && 4321 < to);
-  // Few values: one bucket each, unchanged.
-  assert.deepEqual(downsample([3, null, 5], 100), [{ min: 3, max: 3 }, null, { min: 5, max: 5 }]);
-  assert.deepEqual(downsample([], 100), []);
-  assert.deepEqual(downsample([null, null, null, null], 2), [null, null]);
+test("durations on a log axis never reach 0, and scores are in points", () => {
+  assert.deepEqual(forLog([0, 0.5, 3, null, 120_000]), [1, 1, 3, null, 120_000]);
+  assert.deepEqual(points([0, 1, 4, null]), [0, 0.5, 2, null]);
 });
 
-test("columns cover every turn exactly once", () => {
-  for (const [n, columns] of [
-    [10, 3],
-    [1000, 7],
-    [5, 5],
-    [3, 10],
-  ] as const) {
-    const count = Math.min(n, columns);
-    const covered: number[] = [];
-    for (let c = 0; c < count; c++) {
-      const [from, to] = columnRange(c, n, count);
-      for (let i = from; i < to; i++) covered.push(i);
-    }
-    assert.deepEqual(
-      covered,
-      Array.from({ length: n }, (_, i) => i),
-      `${n} in ${columns}`,
-    );
+test("problems sit at their turns, nowhere else", () => {
+  const turns = structuredClone(record.turns);
+  const answer = turns[1]?.players[1];
+  assert.ok(answer);
+  answer.outcome = "timeout";
+  const at = problems(turns, 1, (i) => 1000 + i);
+  assert.equal(at[1], 1001);
+  for (const [i, v] of at.entries()) {
+    const outcome = turns[i]?.players[1]?.outcome;
+    assert.equal(v, outcome === "ok" ? null : 1000 + i, `turn ${i + 1}`);
   }
+  // A player the game does not have has no problems.
+  assert.ok(problems(turns, 5, () => 1).every((v) => v === null));
 });
 
-test("scales", () => {
-  const linear = linearScale(37);
-  assert.deepEqual(linear.ticks, [0, 10, 20, 30, 40, 50]);
-  assert.equal(linear.at(0), 0);
-  assert.equal(linear.at(50), 1);
-  assert.equal(linear.at(500), 1, "clamped");
-  assert.deepEqual(linearScale(0).ticks, [0, 0.25, 0.5, 0.75, 1]);
-  assert.deepEqual(linearScale(150).ticks, [0, 50, 100, 150, 200]);
-  const log = logScale(100_000);
-  assert.deepEqual(log.ticks, [1, 10, 100, 1000, 10_000, 100_000]);
-  assert.equal(log.at(1), 0);
-  assert.equal(log.at(100_000), 1);
-  assert.ok(Math.abs(log.at(1000) - 0.6) < 1e-9);
-  assert.equal(log.at(0), 0, "zero sits at the bottom");
-  assert.deepEqual(logScale(150_000).ticks.at(-1), 1_000_000);
-});
-
-test("hit testing maps pixels to turns and back", () => {
-  assert.equal(turnAt(0, 100, 10), 1);
-  assert.equal(turnAt(99.9, 100, 10), 10);
-  assert.equal(turnAt(150, 100, 10), 10, "clamped");
-  assert.equal(turnAt(-5, 100, 10), 1, "clamped");
-  for (const [width, turns] of [
-    [100, 10],
-    [640, 3844],
-    [500, 7],
-  ] as const) {
-    for (let turn = 1; turn <= turns; turn += Math.ceil(turns / 50)) {
-      assert.equal(turnAt(turnX(turn, width, turns), width, turns), turn);
-    }
+test("points left fall by what each turn collected", () => {
+  const total = record.maze.cells.split("").filter((c) => c === ".").length;
+  const left = pointsLeft(total, record.turns);
+  assert.equal(left.length, record.turns.length);
+  let expected = total;
+  for (const [i, turn] of record.turns.entries()) {
+    expected -= turn.collected.length;
+    assert.equal(left[i], expected);
   }
+  assert.ok(left.every((v, i) => i === 0 || v <= (left[i - 1] ?? total)));
+});
+
+test("a log axis has a line at every power of ten in range", () => {
+  assert.deepEqual(powersOfTen(1, 100_000), [1, 10, 100, 1000, 10_000, 100_000]);
+  assert.deepEqual(powersOfTen(3, 999), [10, 100]);
+  assert.deepEqual(powersOfTen(0, 5), [1]);
+  assert.deepEqual(powersOfTen(20, 50), []);
+});
+
+test("duration ticks read without decimals", () => {
+  assert.deepEqual([1, 10, 100, 1000, 100_000, 1_000_000].map(durationTick), [
+    "1 µs",
+    "10 µs",
+    "100 µs",
+    "1 ms",
+    "100 ms",
+    "1 s",
+  ]);
 });
