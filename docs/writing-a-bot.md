@@ -162,7 +162,8 @@ examples/python/greedy_bot.py --games 5 --seed 3`) it won 2, drew 7 and lost
 
 - **In the terminal**: `--watch` draws every turn, `--delay 100` slows it
   down, `--marks both` draws both bots' marks (yours in your player's
-  colour unless you choose one).
+  colour unless you choose one). Marked cells get a tinted background and
+  paths are dotted over it, so both show on the same cell.
 
   ```sh
   dedale run racer.py examples/python/greedy_bot.py --watch --delay 100 --marks both

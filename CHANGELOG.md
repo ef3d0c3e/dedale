@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Watching in the terminal** (`--watch`, `dedale replay`): marked cells
+  get a tinted background instead of a glyph, so a path and marks show on
+  the same cell, and points under marks stay visible. Without colours,
+  paths take precedence over marked cells.
+
 ## 0.1.0 (2026-10-20)
 
 The first release.

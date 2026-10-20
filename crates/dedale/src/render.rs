@@ -40,16 +40,21 @@ pub fn render(frame: &Frame<'_>, style: Style) -> String {
     let mut out = header(frame, style);
     let snapshot = frame.snapshot;
     let board = &snapshot.board;
-    // The last mark on a cell wins (B's over A's).
-    let marked: HashMap<Pos, (usize, &Mark)> = frame
-        .marks
-        .iter()
-        .flat_map(|&(player, marks)| {
-            marks
-                .iter()
-                .flat_map(move |m| m.cells.iter().map(move |&pos| (pos, (player, m))))
-        })
-        .collect();
+    // Cells marks tint the background and paths draw over it, so both show
+    // on one cell. Within each, the last mark on a cell wins (B's over A's).
+    let mut tinted: HashMap<Pos, (usize, &Mark)> = HashMap::new();
+    let mut traced: HashMap<Pos, (usize, &Mark)> = HashMap::new();
+    for &(player, marks) in frame.marks {
+        for mark in marks {
+            let layer = match mark.kind {
+                MarkKind::Cells => &mut tinted,
+                MarkKind::Path => &mut traced,
+            };
+            for &pos in &mark.cells {
+                layer.insert(pos, (player, mark));
+            }
+        }
+    }
     for y in 0..board.height() {
         let mut line = String::new();
         for x in 0..board.width() {
@@ -57,18 +62,25 @@ pub fn render(frame: &Frame<'_>, style: Style) -> String {
             let here: Vec<usize> = (0..snapshot.players.len())
                 .filter(|&i| snapshot.players[i].pos == pos)
                 .collect();
+            let wall = here.is_empty() && board.get(pos) == Cell::Wall;
+            let tint = tinted.get(&pos).filter(|_| !wall);
             let (glyph, color) = match (here.as_slice(), board.get(pos)) {
                 ([i], _) => (player_glyph(*i), if *i == 0 { GREEN } else { RED }),
                 ([_, ..], _) => ("X ", MAGENTA),
                 ([], Cell::Wall) => (if style.ascii { "##" } else { "██" }, ""),
-                ([], _) if marked.contains_key(&pos) => {
-                    let (player, mark) = marked[&pos];
-                    mark_glyph(player, mark, style)
-                }
-                ([], Cell::Point) => (if style.ascii { ". " } else { "· " }, YELLOW),
-                ([], Cell::Empty) => ("  ", ""),
+                ([], cell) => match (traced.get(&pos), tint) {
+                    (Some(&(player, mark)), _) => mark_glyph(player, mark, style),
+                    // Without colours there is no background: the mark takes
+                    // the glyph instead.
+                    (None, Some(&(player, mark))) if !style.color => {
+                        mark_glyph(player, mark, style)
+                    }
+                    _ if cell == Cell::Point => (if style.ascii { ". " } else { "· " }, YELLOW),
+                    _ => ("  ", ""),
+                },
             };
-            paint(&mut line, glyph, color, style);
+            let background = tint.map(|&(player, mark)| mark_background(player, mark));
+            paint(&mut line, glyph, color, background, style);
         }
         out.push_str(line.trim_end());
         out.push('\n');
@@ -76,8 +88,9 @@ pub fn render(frame: &Frame<'_>, style: Style) -> String {
     out
 }
 
-/// A marked cell: `∘` for cells, `•` along a path, in the mark's colour or
-/// else its player's.
+/// A marked cell's glyph and its colour (SGR parameters): `•` along a path,
+/// and without colours `∘` for cells, in the mark's colour or else its
+/// player's.
 fn mark_glyph(player: usize, mark: &Mark, style: Style) -> (&'static str, &'static str) {
     let glyph = match (mark.kind, style.ascii) {
         (MarkKind::Cells, false) => "∘ ",
@@ -89,41 +102,73 @@ fn mark_glyph(player: usize, mark: &Mark, style: Style) -> (&'static str, &'stat
         // The players' colours (A green, B red), not bold.
         None => {
             if player == 0 {
-                "\x1b[32m"
+                "32"
             } else {
-                "\x1b[31m"
+                "31"
             }
         }
-        Some(MarkColor::Red) => "\x1b[31m",
-        Some(MarkColor::Orange) => "\x1b[38;5;208m",
-        Some(MarkColor::Yellow) => "\x1b[33m",
-        Some(MarkColor::Green) => "\x1b[32m",
-        Some(MarkColor::Teal) => "\x1b[38;5;30m",
-        Some(MarkColor::Blue) => "\x1b[34m",
-        Some(MarkColor::Purple) => "\x1b[35m",
-        Some(MarkColor::Pink) => "\x1b[38;5;213m",
+        Some(MarkColor::Red) => "31",
+        Some(MarkColor::Orange) => "38;5;208",
+        Some(MarkColor::Yellow) => "33",
+        Some(MarkColor::Green) => "32",
+        Some(MarkColor::Teal) => "38;5;30",
+        Some(MarkColor::Blue) => "34",
+        Some(MarkColor::Purple) => "35",
+        Some(MarkColor::Pink) => "38;5;213",
     };
     (glyph, color)
+}
+
+/// A cells mark's background (SGR parameters): a dark shade of its colour,
+/// or else its player's, so the glyphs drawn over it stay readable.
+fn mark_background(player: usize, mark: &Mark) -> &'static str {
+    match mark.color {
+        None => {
+            if player == 0 {
+                "48;5;22"
+            } else {
+                "48;5;52"
+            }
+        }
+        Some(MarkColor::Red) => "48;5;52",
+        Some(MarkColor::Orange) => "48;5;94",
+        Some(MarkColor::Yellow) => "48;5;58",
+        Some(MarkColor::Green) => "48;5;22",
+        Some(MarkColor::Teal) => "48;5;23",
+        Some(MarkColor::Blue) => "48;5;18",
+        Some(MarkColor::Purple) => "48;5;54",
+        Some(MarkColor::Pink) => "48;5;89",
+    }
 }
 
 fn player_glyph(i: usize) -> &'static str {
     if i == 0 { "A " } else { "B " }
 }
 
-const GREEN: &str = "\x1b[1;32m";
-const RED: &str = "\x1b[1;31m";
-const MAGENTA: &str = "\x1b[1;35m";
-const YELLOW: &str = "\x1b[33m";
+// Colours as SGR parameters, for `paint`.
+const GREEN: &str = "1;32";
+const RED: &str = "1;31";
+const MAGENTA: &str = "1;35";
+const YELLOW: &str = "33";
 const RESET: &str = "\x1b[0m";
 
-fn paint(out: &mut String, text: &str, color: &str, style: Style) {
-    if style.color && !color.is_empty() {
-        out.push_str(color);
+/// `text` in the foreground `color` over `background` (SGR parameters, either
+/// empty or absent for the terminal's own), when colours are on.
+fn paint(out: &mut String, text: &str, color: &str, background: Option<&str>, style: Style) {
+    let background = background.unwrap_or("");
+    if !style.color || (color.is_empty() && background.is_empty()) {
         out.push_str(text);
-        out.push_str(RESET);
-    } else {
-        out.push_str(text);
+        return;
     }
+    out.push_str("\x1b[");
+    out.push_str(color);
+    if !color.is_empty() && !background.is_empty() {
+        out.push(';');
+    }
+    out.push_str(background);
+    out.push('m');
+    out.push_str(text);
+    out.push_str(RESET);
 }
 
 /// `turn 12/400 · 87 points left`, then one line per player: label, name,
@@ -329,7 +374,7 @@ B random     3.5  up     illegal    850 µs
             last: None,
             marks: &[(0, &a), (1, &b)],
         };
-        // B's mark wins (2, 0).
+        // Without colours, B's path takes (2, 0).
         let plain = render(&frame, Style::default());
         assert!(plain.contains("A ∘ • • ·\n"), "{plain}");
         let color = render(
@@ -339,7 +384,11 @@ B random     3.5  up     illegal    850 µs
                 color: true,
             },
         );
-        assert!(color.contains("\x1b[32m∘ \x1b[0m\x1b[31m• "), "{color}");
+        // A's cells tint the point at (1, 0) and B's path at (2, 0) green.
+        assert!(
+            color.contains("\x1b[33;48;5;22m· \x1b[0m\x1b[31;48;5;22m• \x1b[0m\x1b[31m• \x1b[0m"),
+            "{color}"
+        );
     }
 
     #[test]
@@ -400,8 +449,8 @@ B random     3.5  up     illegal    850 µs
             marks: &[(0, &marks)],
         };
         let plain = render(&frame, Style::default());
-        // The later mark wins (3, 0).
-        assert!(plain.contains("A • • ∘ ·\n"), "{plain}");
+        // Without colours, the path takes (3, 0).
+        assert!(plain.contains("A • • • ·\n"), "{plain}");
         assert!(plain.contains("· ██████∘\n"), "{plain}");
         let ascii = render(
             &frame,
@@ -410,7 +459,8 @@ B random     3.5  up     illegal    850 µs
                 color: false,
             },
         );
-        assert!(ascii.contains("A * * + .\n"), "{ascii}");
+        assert!(ascii.contains("A * * * .\n"), "{ascii}");
+        assert!(ascii.contains(". ######+\n"), "{ascii}");
         let color = render(
             &frame,
             Style {
@@ -419,7 +469,51 @@ B random     3.5  up     illegal    850 µs
             },
         );
         assert!(color.contains("\x1b[38;5;30m• \x1b[0m"), "{color}");
-        assert!(color.contains("\x1b[38;5;213m∘ \x1b[0m"), "{color}");
+        // The path over the pink cell at (3, 0), the point at (4, 2).
+        assert!(color.contains("\x1b[38;5;30;48;5;89m• \x1b[0m"), "{color}");
+        assert!(color.contains("\x1b[33;48;5;89m· \x1b[0m"), "{color}");
+    }
+
+    #[test]
+    fn cells_marks_tint_what_is_drawn_over_them() {
+        let game = Game::new(Maze::parse(RING).unwrap(), Seating::Solo, 100);
+        let names = names(1);
+        // The player's cell, an empty one, a wall and a point.
+        let marks = [Mark {
+            cells: vec![
+                Pos::new(0, 0),
+                Pos::new(4, 4),
+                Pos::new(1, 1),
+                Pos::new(0, 1),
+            ],
+            label: None,
+            color: Some(MarkColor::Blue),
+            kind: MarkKind::Cells,
+        }];
+        let frame = Frame {
+            snapshot: game.snapshot(),
+            names: &names,
+            max_turns: 100,
+            last: None,
+            marks: &[(0, &marks)],
+        };
+        let color = render(
+            &frame,
+            Style {
+                ascii: false,
+                color: true,
+            },
+        );
+        let rows: Vec<&str> = color.lines().skip(2).collect();
+        assert!(
+            rows[0].starts_with("\x1b[1;32;48;5;18mA \x1b[0m"),
+            "{color}"
+        );
+        assert!(
+            rows[1].starts_with("\x1b[33;48;5;18m· \x1b[0m██"),
+            "walls stay: {color}"
+        );
+        assert!(rows[4].ends_with("\x1b[48;5;18m  \x1b[0m"), "{color}");
     }
 
     #[test]
