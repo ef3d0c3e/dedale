@@ -24,8 +24,7 @@ use crate::web::live::Plan;
 
 #[derive(Debug, Args)]
 pub(crate) struct RunArgs {
-    /// One bot (solo) or two (duo): `.py` files, or executables speaking the
-    /// protocol.
+    /// One bot (solo) or two (duo): Python files (`.py`).
     #[arg(required = true, num_args = 1..=2, value_name = "BOT")]
     bots: Vec<PathBuf>,
     #[command(flatten)]

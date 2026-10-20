@@ -2,8 +2,7 @@
 
 This guide takes you from an empty file to a bot that plays sensibly, shows
 you how to watch it think, measure it against the example bots, and get it
-ready for a competition. It uses Python; bots in other languages speak the
-same game through a [small protocol](protocol.md).
+ready for a competition. Bots are written in Python.
 
 - [What you need](#what-you-need)
 - [The game in one minute](#the-game-in-one-minute)
@@ -14,7 +13,7 @@ same game through a [small protocol](protocol.md).
 - [Testing and measuring](#testing-and-measuring)
 - [Ideas for a stronger bot](#ideas-for-a-stronger-bot)
 - [Before you compete](#before-you-compete)
-- [Other languages](#other-languages)
+- [More references](#more-references)
 
 ## What you need
 
@@ -314,14 +313,9 @@ Also:
 - Run a tournament against the examples in the sandbox, on a few maze sizes,
   and check the `failures` column reads 0.
 
-## Other languages
+## More references
 
-Any executable can compete: Dedale runs bot paths that do not end in `.py`
-as programs, and talks to them in JSON lines over stdin and stdout: a
-`hello` from the bot, the maze in `init`, `ready` when done, then a `turn`
-and a `move` back, until `end`. [`protocol.md`](protocol.md) describes every
-message.
-
-More references: the [Python API](../bindings/python/README.md), the
-[replay format](replay.md) (to analyse games with your own tools), and the
+The [Python API](../bindings/python/README.md), the
+[replay format](replay.md) (to analyse games with your own tools), the
+[protocol](protocol.md) the harness speaks for your bot, and the
 [README](../README.md).

@@ -8,9 +8,8 @@ maze from opposite corners and race to collect its points:
 - **solo**: clear the maze in as few turns as possible;
 - **duo**: collect more points than the opponent.
 
-Bots are separate programs (Python first, any language through a simple
-protocol). Each gets a startup budget to precompute, then a time limit per
-move. Dedale records every game as a replay with full timing and error
+Bots are Python programs, each run in its own process. Each gets a startup
+budget to precompute, then a time limit per move. Dedale records every game as a replay with full timing and error
 analytics, which it can rewind turn by turn, in the terminal or in its
 browser app, live or afterwards.
 
@@ -41,7 +40,6 @@ Want to write a bot? Start with [Writing a bot](docs/writing-a-bot.md), then
   [`view`](#dedale-view-dir), [`about`](#dedale-about-bot)
 - [Browser app](#browser-app)
 - [Analytics](#analytics)
-- [Other languages](#other-languages)
 - [Development and tests](#development-and-tests)
 
 ## Installation
@@ -81,7 +79,7 @@ comes compiled in the repository, so Node is not needed.
 |---|---|
 | [Writing a bot](docs/writing-a-bot.md) | From an empty file to a competitive bot: running it, watching it think, measuring it, getting it ready for a competition |
 | [Python API](bindings/python/README.md) | Everything the `dedale` module gives a bot: the maze, the game state, time, logs and marks, errors |
-| [Bot protocol](docs/protocol.md) | For bots in other languages: the JSON lines Dedale and a program exchange |
+| [Bot protocol](docs/protocol.md) | The JSON lines Dedale and the Python harness exchange: what the replay's logs, marks and outcomes mean |
 | [Replay and tournament files](docs/replay.md) | The formats of `replay.json` and `tournament.json`, to analyse games with your own tools |
 | [The browser app's server](docs/web.md) | Its routes, security and live events, to script a live session |
 | [Working on the browser app](web/README.md) | The app's layout, build, tests and fixtures |
@@ -365,7 +363,7 @@ without opening a browser. Ctrl-C stops it.
 Prints what each bot says about itself, one JSON object per line, without
 playing: `path`, `said_hello` (false when the bot did not start or said no
 `hello` in time), `name`, `author`, `description` and `version` (`null`
-when not given). Python bots are read from their source, so none of their
+when not given). They are read from the bots' source, so none of their
 code runs.
 
 ```sh
@@ -480,12 +478,6 @@ events such as late answers, the result, and per-bot statistics (latency
 min/mean/p50/p95/p99/max, outcome counts, steps, startup time). Bots' stderr
 goes to `<file name>.stderr.log` next to it. The format is described in
 [`docs/replay.md`](docs/replay.md).
-
-## Other languages
-
-Any executable can compete: Dedale runs paths that do not end in `.py` as
-programs and talks to them in JSON lines over stdin and stdout. See
-[`docs/protocol.md`](docs/protocol.md).
 
 ## Development and tests
 

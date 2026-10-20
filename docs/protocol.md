@@ -1,8 +1,9 @@
 # Bot protocol
 
-How Dedale talks to a competitor program. Python bots get this for free from
-the embedded harness; bots in other languages implement it directly. Dedale
-runs any bot path that does not end in `.py` as an executable.
+How Dedale talks to a bot's process. A bot never deals with it: the Python
+harness built into Dedale speaks it for the bot, calling `init()` and
+`move()`. It is described here as a reference for what the replay records:
+logs, marks, errors and outcomes.
 
 ## Transport
 

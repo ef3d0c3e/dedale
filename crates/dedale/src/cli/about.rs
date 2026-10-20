@@ -18,7 +18,7 @@ use crate::python::PythonRuntime;
 
 #[derive(Debug, Args)]
 pub(crate) struct AboutArgs {
-    /// Bots: Python files (`.py`) or programs speaking the protocol.
+    /// Bots: Python files (`.py`).
     #[arg(required = true, value_name = "BOT")]
     bots: Vec<PathBuf>,
     /// How long a bot may take to say `hello`, in milliseconds.
