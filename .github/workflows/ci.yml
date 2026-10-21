@@ -23,7 +23,8 @@ env:
   CARGO_TERM_COLOR: always
   # Pinned so that a new release's lints (clippy runs with -D warnings) only
   # arrive when this is bumped; scripts/check.sh also checks the runner's
-  # latest stable compiles.
+  # latest stable compiles. It is the workspace's declared `rust-version`
+  # too (scripts/check.sh checks they agree): bump both together.
   RUST_VERSION: "1.95.0"
 
 jobs:

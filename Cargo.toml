@@ -6,7 +6,7 @@ exclude = ["fuzz"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.95"
 license = "MIT"
 authors = ["ef3d0c3e <ef3d0c3e@pundalik.org>"]
 publish = false

@@ -69,10 +69,11 @@ not signed: on macOS, one downloaded with a browser is quarantined, and
 On Windows, use the Linux archive in WSL. The sandbox (`--sandbox`) runs on
 Linux only.
 
-**From source**, with a [Rust toolchain](https://rustup.rs): in a clone,
-`cargo install --locked --path crates/dedale` puts `dedale` on your PATH
-(or `cargo build --release` builds `target/release/dedale`). The browser app
-comes compiled in the repository, so Node is not needed.
+**From source**, with a [Rust toolchain](https://rustup.rs), 1.95 or
+later: in a clone, `cargo install --locked --path crates/dedale` puts
+`dedale` on your PATH (or `cargo build --release` builds
+`target/release/dedale`). The browser app comes compiled in the
+repository, so Node is not needed.
 
 ## Documentation
 

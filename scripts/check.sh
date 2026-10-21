@@ -19,6 +19,16 @@ done
 
 step() { printf '\n==> %s\n' "$*"; }
 
+step "Rust version"
+# The declared minimum is the toolchain CI builds with, so CI proves it.
+declared=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
+pinned=$(sed -n 's/^  RUST_VERSION: "\(.*\)"$/\1/p' .github/workflows/ci.yml)
+if [[ $pinned != "$declared" && $pinned != "$declared".* ]]; then
+    echo "Cargo.toml declares Rust $declared, but CI builds with $pinned" >&2
+    exit 1
+fi
+echo "$declared (CI: $pinned)"
+
 step "rustfmt"
 cargo fmt --all --check
 cargo fmt --manifest-path fuzz/Cargo.toml --check
