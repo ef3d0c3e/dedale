@@ -24,6 +24,7 @@ use dedale_core::record::{GameRecord, StartupOutcome};
 const HOSTILE: &str = r#"
 import os
 import socket
+import threading
 import time
 from pathlib import Path
 
@@ -56,6 +57,23 @@ def forks():
     return len(children)
 
 
+def threaded(action):
+    """Runs `action` in another thread, raising what it raised."""
+    failure = []
+
+    def run():
+        try:
+            action()
+        except BaseException as e:
+            failure.append(e)
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    thread.join()
+    if failure:
+        raise failure[0]
+
+
 def init():
     attempt("network", lambda: socket.create_connection(("1.1.1.1", 53), timeout=1).close())
     attempt("own dir", lambda: (HERE / "written").write_text("x"))
@@ -64,6 +82,8 @@ def init():
     print("secret env:", "DEDALE_TEST_SECRET" in os.environ)
     attempt("memory", lambda: len(bytearray(1 << 30)))
     attempt("big file", lambda: Path("/tmp/big").write_bytes(b"x" * (100 << 20)))
+    attempt("affinity", lambda: os.sched_setaffinity(0, range(os.cpu_count())))
+    attempt("thread affinity", lambda: threaded(lambda: os.sched_setaffinity(0, [0])))
     print("cpus:", sorted(os.sched_getaffinity(0)))
     print("forks:", forks())
 
@@ -161,6 +181,8 @@ fn a_hostile_bot_is_contained() {
         "secret env: False",
         "memory: refused (MemoryError)",
         "big file: refused",
+        "affinity: refused (PermissionError)",
+        "thread affinity: refused (PermissionError)",
         &format!("cpus: [{cpu}]"),
     ] {
         assert!(log.contains(line), "{line:?} in:\n{log}");

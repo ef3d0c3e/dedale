@@ -1,24 +1,30 @@
 //! Running bots in a sandbox: bubblewrap isolates them, `prlimit`
-//! caps their resources from inside, `taskset` gives each a core of its own.
+//! caps their resources from inside, `taskset` gives each a core of its own,
+//! and a seccomp filter keeps them there.
 //!
 //! Linux only, and opt-in. A sandboxed bot sees the system read-only (`/usr`
 //! and the libraries), its own directory and the interpreter that runs it
 //! read-only, and a small private `/tmp`; it has no network, no environment
-//! but a few variables, and no other process in sight.
+//! but a few variables, no other process in sight, and cannot change its CPU
+//! affinity.
 //!
 //! The caps are set inside the sandbox on purpose: in its own user
 //! namespace a bot's processes are counted apart from the user's others.
 
 use std::ffi::{OsStr, OsString};
 use std::fs;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::Arc;
 
 #[cfg(target_os = "linux")]
 use nix::sched::{CpuSet, sched_getaffinity, sched_setaffinity};
 #[cfg(target_os = "linux")]
 use nix::unistd::Pid;
 use thiserror::Error;
+
+use crate::seccomp;
 
 /// Directories of the system every bot sees, read-only, when they exist.
 const SYSTEM: [&str; 5] = ["/bin", "/sbin", "/lib", "/lib32", "/lib64"];
@@ -84,7 +90,37 @@ pub struct Sandbox {
     /// The interpreter Python bots run with, when it could be found: its
     /// real executable (past any shim) and its installation directories.
     python: Option<Interpreter>,
+    filter: Filter,
 }
+
+/// The seccomp filter, in a file of its own: bubblewrap reads it from a file
+/// descriptor, which `sh` opens for it (passing one directly would need
+/// `unsafe`). Removed when the last sandbox using it goes.
+#[derive(Debug, Clone)]
+struct Filter(Arc<tempfile::NamedTempFile>);
+
+impl Filter {
+    fn write(program: &[u8]) -> io::Result<Self> {
+        let mut file = tempfile::Builder::new()
+            .prefix("dedale-seccomp-")
+            .tempfile()?;
+        file.write_all(program)?;
+        file.flush()?;
+        Ok(Self(Arc::new(file)))
+    }
+
+    fn path(&self) -> &Path {
+        self.0.path()
+    }
+}
+
+impl PartialEq for Filter {
+    fn eq(&self, other: &Self) -> bool {
+        self.path() == other.path()
+    }
+}
+
+impl Eq for Filter {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Interpreter {
@@ -108,10 +144,23 @@ impl Sandbox {
     ///
     /// When it, `prlimit` or `taskset` does not work here.
     pub fn with_bwrap(bwrap: &Path, limits: Limits, python: &OsStr) -> Result<Self, SandboxError> {
+        let unusable = |what: &str, detail: String| SandboxError::Unusable {
+            what: what.to_owned(),
+            detail,
+        };
+        let program = seccomp::filter().ok_or_else(|| {
+            unusable(
+                "Dedale has no seccomp filter for this processor",
+                std::env::consts::ARCH.to_owned(),
+            )
+        })?;
+        let filter = Filter::write(&program)
+            .map_err(|e| unusable("cannot write the seccomp filter", e.to_string()))?;
         let sandbox = Self {
             limits,
             bwrap: bwrap.to_owned(),
             python: Interpreter::find(python),
+            filter,
         };
         let cpu = allowed_cpus().first().copied().unwrap_or(0);
         let mut test = sandbox.command(
@@ -147,14 +196,18 @@ impl Sandbox {
         let mut command = match cpu {
             Some(cpu) => {
                 let mut taskset = Command::new("taskset");
-                taskset
-                    .arg("--cpu-list")
-                    .arg(cpu.to_string())
-                    .arg(&self.bwrap);
+                taskset.arg("--cpu-list").arg(cpu.to_string()).arg("sh");
                 taskset
             }
-            None => Command::new(&self.bwrap),
+            None => Command::new("sh"),
         };
+        // `sh` opens the filter as file descriptor 3 and becomes bubblewrap,
+        // which loads it into the sandbox before starting the program.
+        command
+            .args(["-c", r#"exec "$@" 3<"$0""#])
+            .arg(self.filter.path())
+            .arg(&self.bwrap)
+            .args(["--seccomp", "3"]);
         command.args(self.bwrap_args(env, visible, dir));
         command
             .arg("--")
@@ -366,7 +419,7 @@ pub fn keep_off(_cpus: &[usize]) {}
 
 #[cfg(test)]
 mod tests {
-    use super::{Limits, Sandbox, parse_cpu_list, runnable, spread};
+    use super::{Filter, Limits, Sandbox, parse_cpu_list, runnable, spread};
     use std::ffi::OsStr;
     use std::path::{Path, PathBuf};
 
@@ -389,10 +442,12 @@ mod tests {
 
     #[test]
     fn commands_hide_the_host() {
+        let filter = Filter::write(b"filter").unwrap();
         let sandbox = Sandbox {
             limits: Limits::default(),
             bwrap: PathBuf::from("bwrap"),
             python: None,
+            filter: filter.clone(),
         };
         let command = sandbox.command(
             Path::new("/usr/bin/python3"),
@@ -405,10 +460,12 @@ mod tests {
         assert_eq!(command.get_program(), "taskset");
         let args: Vec<_> = command.get_args().map(|a| a.to_string_lossy()).collect();
         let text = args.join(" ");
-        assert!(
-            text.starts_with("--cpu-list 3 bwrap --unshare-all"),
-            "{text}"
+        let start = format!(
+            r#"--cpu-list 3 sh -c exec "$@" 3<"$0" {} bwrap --seccomp 3 --unshare-all"#,
+            filter.path().display()
         );
+        assert!(text.starts_with(&start), "{text}");
+        assert_eq!(std::fs::read(filter.path()).unwrap(), b"filter");
         for part in [
             "--clearenv",
             "--setenv HOME /tmp",

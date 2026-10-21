@@ -342,7 +342,10 @@ instead. A sandboxed bot:
 - gets at most 2048 MiB of memory per process (`--memory-mib`) and 64
   processes and threads (`--processes`);
 - runs on a CPU of its own, on separate physical cores when there are
-  enough; Dedale keeps off those CPUs.
+  enough, and cannot leave it: a seccomp filter makes `sched_setaffinity`
+  fail (`EPERM`), along with any system call made through another
+  architecture's interface (32-bit x86, x32); Dedale keeps off those
+  CPUs.
 
 It needs `bwrap`, `prlimit` and `taskset` (util-linux). Dedale checks that
 they work before the first game and stops with an explanation if they do
@@ -351,8 +354,6 @@ namespaces bubblewrap uses: load bwrap's AppArmor profile, or run
 `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`. The replay
 notes that the game was sandboxed and which CPU each bot had.
 
-A bot can still change its own CPU affinity: pinning keeps honest bots
-apart, it does not stop a determined one.
 
 ### `dedale view [DIR]`
 

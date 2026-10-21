@@ -157,7 +157,8 @@ Competitions run bots with `dedale run --sandbox` or `dedale tournament
 --sandbox`. A sandboxed bot can read its own directory (sibling modules
 still import) and the Python installation that runs it, write only to `/tmp`
 (64 MiB), and has no network and an empty environment; memory and processes
-are capped.
+are capped, and it stays on one CPU (`os.sched_setaffinity` raises
+`PermissionError`).
 
 Packages import when that interpreter has them: installed into it, or into
 the virtual environment it comes from (`--python .venv/bin/python`).

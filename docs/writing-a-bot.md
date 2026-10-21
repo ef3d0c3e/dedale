@@ -301,7 +301,8 @@ libraries it has. Competitions run every bot in Dedale's sandbox
 - can write only to a private `/tmp` (64 MiB), has no network and an empty
   environment;
 - gets at most 2048 MiB of memory per process, 64 processes and threads, and
-  one CPU.
+  one CPU, which it cannot leave (`os.sched_setaffinity` raises
+  `PermissionError`).
 
 Also:
 

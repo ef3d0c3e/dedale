@@ -181,6 +181,39 @@ jobs:
               --max-turns 200 --out "$RUNNER_TEMP/game"
           target/debug/dedale replay --verify "$RUNNER_TEMP/game/replay.json"
 
+  # The sandbox's seccomp filter has its own system call numbers for each
+  # processor: its tests on arm64 too, where the release builds a binary.
+  sandbox-arm:
+    name: Sandbox on arm64
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    env:
+      DEDALE_REQUIRE_SANDBOX: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Rust ${{ env.RUST_VERSION }}
+        run: |
+          rustup toolchain install "$RUST_VERSION" --profile minimal
+          rustup default "$RUST_VERSION"
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: Sandbox tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bubblewrap
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
+      - name: Sandbox tests
+        run: |
+          cargo test --locked --all-features --lib -- sandbox:: seccomp::
+          cargo test --locked --all-features --test sandbox
+
   # Weekly and by hand: every fuzz target for three minutes on nightly,
   # from its seeds. A crash fails the job and keeps the input that caused it.
   fuzz:

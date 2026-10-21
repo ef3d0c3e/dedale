@@ -9,5 +9,6 @@ pub mod referee;
 pub mod render;
 pub mod replay;
 pub mod sandbox;
+mod seccomp;
 pub mod tournament;
 pub mod web;
