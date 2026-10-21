@@ -242,9 +242,28 @@ impl Interpreter {
             }
         }
         Some(Self {
-            executable,
+            executable: runnable(executable, &prefixes),
             prefixes,
         })
+    }
+}
+
+/// Where to run the interpreter from: `executable` when the sandbox shows it
+/// (under `/usr` or a prefix), else its resolved path when that is shown. A
+/// symbolic link to the interpreter's directory can put the path it reports
+/// outside the prefixes it reports (uv's `cpython-3.11-…` links to
+/// `cpython-3.11.17-…`). A virtual environment's `bin/python`, itself a link
+/// to the base interpreter, is under its prefix and stays as it is: run from
+/// its target, it would lose the environment.
+fn runnable(executable: PathBuf, prefixes: &[PathBuf]) -> PathBuf {
+    let shown =
+        |path: &Path| path.starts_with("/usr") || prefixes.iter().any(|p| path.starts_with(p));
+    if shown(&executable) {
+        return executable;
+    }
+    match fs::canonicalize(&executable) {
+        Ok(resolved) if shown(&resolved) => resolved,
+        _ => executable,
     }
 }
 
@@ -347,7 +366,7 @@ pub fn keep_off(_cpus: &[usize]) {}
 
 #[cfg(test)]
 mod tests {
-    use super::{Limits, Sandbox, parse_cpu_list, spread};
+    use super::{Limits, Sandbox, parse_cpu_list, runnable, spread};
     use std::ffi::OsStr;
     use std::path::{Path, PathBuf};
 
@@ -403,6 +422,34 @@ mod tests {
             assert!(text.contains(part), "{part} in {text}");
         }
         assert!(!text.contains("--bind "), "nothing is writable: {text}");
+    }
+
+    #[test]
+    fn interpreters_run_from_a_path_the_sandbox_shows() {
+        // `link` points to `real`, the interpreter's prefix.
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("python-3.11.17");
+        std::fs::create_dir_all(real.join("bin")).unwrap();
+        std::fs::write(real.join("bin/python3.11"), "").unwrap();
+        let link = dir.path().join("python-3.11");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let real = std::fs::canonicalize(real).unwrap();
+        let reported = link.join("bin/python3.11");
+        assert_eq!(
+            runnable(reported.clone(), std::slice::from_ref(&real)),
+            real.join("bin/python3.11")
+        );
+        // Already shown, as a virtual environment's link to its base is.
+        assert_eq!(
+            runnable(reported.clone(), std::slice::from_ref(&link)),
+            reported
+        );
+        assert_eq!(
+            runnable(PathBuf::from("/usr/bin/python3"), &[]),
+            PathBuf::from("/usr/bin/python3")
+        );
+        // Shown nowhere, even resolved: left for the error to say so.
+        assert_eq!(runnable(reported.clone(), &[]), reported);
     }
 
     #[test]

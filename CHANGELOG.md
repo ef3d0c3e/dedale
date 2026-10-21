@@ -6,6 +6,8 @@
   get a tinted background instead of a glyph, so a path and marks show on
   the same cell, and points under marks stay visible. Without colours,
   paths take precedence over marked cells.
+- **Sandbox**: a Python reached through a symbolic link to its directory,
+  as uv installs them, starts in the sandbox instead of crashing every bot.
 
 ## 0.1.0 (2026-10-20)
 
