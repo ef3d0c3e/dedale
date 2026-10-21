@@ -12,5 +12,7 @@ cargo fuzz run <target> -- -max_total_time=60
 `fuzz/seeds/<target>/` holds committed seed inputs (real replays, golden
 mazes), used next to the working corpus in `fuzz/corpus/<target>/`.
 `fuzz/dicts/<target>.dict` holds libFuzzer dictionary tokens for a target
-(`-dict=fuzz/dicts/<target>.dict`). `scripts/check.sh --fuzz <seconds>` runs
-every target for that long, with its dictionary when there is one.
+(`-dict=fuzz/dicts/<target>.dict`). `scripts/fuzz.sh <seconds>` (or
+`scripts/check.sh --fuzz <seconds>`, after the other checks) runs every
+target for that long, with its dictionary when there is one. CI does it
+every week, three minutes per target.

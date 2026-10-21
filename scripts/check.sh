@@ -83,21 +83,17 @@ fi
 step "cargo-deny"
 cargo deny --locked check
 
+if command -v actionlint >/dev/null; then
+    step "workflows"
+    actionlint
+elif [[ -n ${CI:-} ]]; then
+    echo "actionlint is not on the PATH: CI must check the workflows" >&2
+    exit 1
+fi
+
 if [[ -n $fuzz_secs ]]; then
     step "fuzz (${fuzz_secs}s per target)"
-    for target in $(rustup run nightly cargo fuzz list); do
-        # Room for a full-size line or map (64 KiB), beyond libFuzzer's 4 KiB default.
-        args=(-max_total_time="$fuzz_secs" -max_len=70000)
-        if [[ -f fuzz/dicts/$target.dict ]]; then
-            args+=(-dict="fuzz/dicts/$target.dict")
-        fi
-        corpus=(fuzz/corpus/"$target")
-        if [[ -d fuzz/seeds/$target ]]; then
-            corpus+=(fuzz/seeds/"$target")
-        fi
-        mkdir -p "${corpus[0]}"
-        rustup run nightly cargo fuzz run "$target" "${corpus[@]}" -- "${args[@]}"
-    done
+    scripts/fuzz.sh "$fuzz_secs"
 fi
 
 step "all checks passed"

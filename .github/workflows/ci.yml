@@ -1,15 +1,18 @@
 # Every quality gate of scripts/check.sh, on each push to master and each
 # pull request: rustfmt, clippy, the Rust and Python tests, the web checks,
-# the browser end to end, cargo-deny, all with the runner's Python 3.12.
-# Plus the harness on the other Pythons it supports, and a macOS build that
-# plays a game. The release workflow calls it first. Third-party actions
-# are pinned by commit.
+# the browser end to end, cargo-deny, actionlint, all with the runner's
+# Python 3.12. Plus the harness on the other Pythons it supports, and a
+# macOS build that plays a game. Weekly, all of it again (new advisories,
+# runner changes) and every fuzz target. The release workflow calls it
+# first. Third-party actions are pinned by commit.
 name: CI
 
 on:
   push:
     branches: [master]
   pull_request:
+  schedule:
+    - cron: "23 5 * * 1"
   workflow_dispatch:
   workflow_call:
 
@@ -63,6 +66,21 @@ jobs:
       - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:
           tool: cargo-deny@0.20.2
+
+      - name: actionlint
+        # A pinned release, checked against its hash; scripts/check.sh runs
+        # it (with the runner's shellcheck on the scripts).
+        env:
+          VERSION: "1.7.12"
+          SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          file="actionlint_${VERSION}_linux_amd64.tar.gz"
+          curl -fsSLO "https://github.com/rhysd/actionlint/releases/download/v${VERSION}/${file}"
+          echo "${SHA256}  ${file}" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$file" -C "$RUNNER_TEMP/bin" actionlint
+          rm "$file"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
       - name: Sandbox tools
         run: |
@@ -162,3 +180,36 @@ jobs:
           target/debug/dedale run examples/python/greedy_bot.py examples/python/rollout_bot.py \
               --max-turns 200 --out "$RUNNER_TEMP/game"
           target/debug/dedale replay --verify "$RUNNER_TEMP/game/replay.json"
+
+  # Weekly and by hand: every fuzz target for three minutes on nightly,
+  # from its seeds. A crash fails the job and keeps the input that caused it.
+  fuzz:
+    name: Fuzz
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Rust nightly
+        run: rustup toolchain install nightly --profile minimal
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: fuzz -> target
+
+      - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        with:
+          tool: cargo-fuzz@0.13.2
+
+      - name: Fuzz
+        run: scripts/fuzz.sh 180
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: fuzz-artifacts
+          path: fuzz/artifacts/
+          if-no-files-found: ignore

@@ -508,7 +508,11 @@ them fail rather than skip when the sandbox cannot start). The harness
 supports Python 3.10 and later: a matrix job runs its tests, the Rust tests
 that drive Python bots and a game on Python 3.10, 3.11, 3.13 and 3.14. A
 macOS job builds `dedale` and plays a game with it (the tests themselves
-need Linux).
+need Linux). Every Monday the whole CI runs again, so new advisories and
+runner changes show up without a push, along with every fuzz target for
+three minutes (`scripts/fuzz.sh 180`; a crash keeps its input as an
+artifact). actionlint checks the workflows in CI, and locally when it is
+on the PATH.
 Dependabot proposes updates of the crates, the app's tools and the pinned
 actions every week ([`.github/dependabot.yml`](.github/dependabot.yml)).
 
