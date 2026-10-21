@@ -1,6 +1,7 @@
 # Dedale
 
 [![CI](https://github.com/ef3d0c3e/dedale/actions/workflows/ci.yml/badge.svg)](https://github.com/ef3d0c3e/dedale/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/ef3d0c3e/dedale)](https://github.com/ef3d0c3e/dedale/releases/latest)
 
 A referee for maze bots. One or two competitor programs explore a symmetric
 maze from opposite corners and race to collect its points:
