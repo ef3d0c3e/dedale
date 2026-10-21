@@ -1,8 +1,9 @@
 # Every quality gate of scripts/check.sh, on each push to master and each
 # pull request: rustfmt, clippy, the Rust and Python tests, the web checks,
-# the browser end to end, cargo-deny. Plus a macOS build that plays a game.
-# The release workflow calls it first. Third-party actions are pinned by
-# commit.
+# the browser end to end, cargo-deny, all with the runner's Python 3.12.
+# Plus the harness on the other Pythons it supports, and a macOS build that
+# plays a game. The release workflow calls it first. Third-party actions
+# are pinned by commit.
 name: CI
 
 on:
@@ -114,4 +115,50 @@ jobs:
         run: |
           target/debug/dedale run examples/python/greedy_bot.py examples/python/tour_bot.py \
               --max-turns 100 --out "$RUNNER_TEMP/game"
+          target/debug/dedale replay --verify "$RUNNER_TEMP/game/replay.json"
+
+  # The harness supports Python 3.10 and later; the job above runs 3.12.
+  # Here, the others: the harness's tests, the Rust tests that drive Python
+  # bots (timeouts, crashes, errors, marks), and a game.
+  python:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        id: python
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Rust ${{ env.RUST_VERSION }}
+        run: |
+          rustup toolchain install "$RUST_VERSION" --profile minimal
+          rustup default "$RUST_VERSION"
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: Python tests
+        working-directory: bindings/python
+        run: python -m unittest discover -s tests -t .
+
+      - name: Rust tests with Python bots
+        env:
+          DEDALE_PYTHON: ${{ steps.python.outputs.python-path }}
+        run: cargo test --locked --all-features --test python --test about --test cli
+
+      - name: Play a game
+        env:
+          DEDALE_PYTHON: ${{ steps.python.outputs.python-path }}
+        run: |
+          cargo build --locked --bin dedale
+          target/debug/dedale run examples/python/greedy_bot.py examples/python/rollout_bot.py \
+              --max-turns 200 --out "$RUNNER_TEMP/game"
           target/debug/dedale replay --verify "$RUNNER_TEMP/game/replay.json"

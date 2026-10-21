@@ -502,10 +502,13 @@ The suites one by one:
 
 GitHub Actions runs the same script on every push to `master` and every
 pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), on
-Ubuntu 24.04 with a pinned Rust, the runner's Chrome, and bubblewrap so
-that the sandbox tests run (`DEDALE_REQUIRE_SANDBOX=1` makes them fail
-rather than skip when the sandbox cannot start). A macOS job builds
-`dedale` and plays a game with it (the tests themselves need Linux).
+Ubuntu 24.04 with a pinned Rust, the runner's Python 3.12 and Chrome, and
+bubblewrap so that the sandbox tests run (`DEDALE_REQUIRE_SANDBOX=1` makes
+them fail rather than skip when the sandbox cannot start). The harness
+supports Python 3.10 and later: a matrix job runs its tests, the Rust tests
+that drive Python bots and a game on Python 3.10, 3.11, 3.13 and 3.14. A
+macOS job builds `dedale` and plays a game with it (the tests themselves
+need Linux).
 Dependabot proposes updates of the crates, the app's tools and the pinned
 actions every week ([`.github/dependabot.yml`](.github/dependabot.yml)).
 

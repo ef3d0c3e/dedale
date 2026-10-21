@@ -17,8 +17,9 @@ ready for a competition. Bots are written in Python.
 
 ## What you need
 
-- **Python 3.10 or later**. The standard library is enough; packages such
-  as numpy work too, but a competition only has the ones it lists.
+- **Python 3.10 or later** (CI tests 3.10 to 3.14; the competition runs
+  3.12). The standard library is enough; packages such as numpy work too,
+  but a competition only has the ones it lists.
 - **Dedale**: the archive for your platform from the
   [releases](https://github.com/ef3d0c3e/dedale/releases) (see
   [Installation](../README.md#installation)), or built from a clone of this
