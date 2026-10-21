@@ -506,6 +506,8 @@ Ubuntu 24.04 with a pinned Rust, the runner's Chrome, and bubblewrap so
 that the sandbox tests run (`DEDALE_REQUIRE_SANDBOX=1` makes them fail
 rather than skip when the sandbox cannot start). A macOS job builds
 `dedale` and plays a game with it (the tests themselves need Linux).
+Dependabot proposes updates of the crates, the app's tools and the pinned
+actions every week ([`.github/dependabot.yml`](.github/dependabot.yml)).
 
 **Releases.** Set the new version in `Cargo.toml` and
 `bindings/python/pyproject.toml`, describe it in

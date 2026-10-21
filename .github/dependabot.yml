@@ -1,0 +1,28 @@
+# Weekly updates, one grouped pull request per ecosystem: the Rust crates
+# (the workspace and the fuzz targets), the browser app's tools, and the
+# actions the workflows pin by commit. An npm update that changes the
+# compiled app needs `npm run build` in web/ and the new web/dist/
+# committed: CI compares a fresh build with it.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directories: ["/", "/fuzz"]
+    schedule:
+      interval: weekly
+    groups:
+      crates:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    groups:
+      web:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
