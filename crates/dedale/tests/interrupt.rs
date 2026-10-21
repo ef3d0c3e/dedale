@@ -27,7 +27,7 @@ impl Observer for Pause {
         }
         interrupt::request();
         self.requested.get_or_insert_with(Instant::now);
-        Some(Duration::from_secs(60))
+        Some(Duration::from_mins(1))
     }
 }
 

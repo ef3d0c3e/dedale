@@ -198,7 +198,7 @@ fn run(script: &Script) -> io::Result<ExitCode> {
             Ok(ToBot::End(_)) => {
                 if script.ignore_end {
                     loop {
-                        sleep(Duration::from_secs(3600));
+                        sleep(Duration::from_hours(1));
                     }
                 }
                 return Ok(ExitCode::SUCCESS);
